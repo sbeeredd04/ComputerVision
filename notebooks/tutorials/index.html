@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cute Eilik Robot Animation</title>
+<style>
+body {
+margin: 0;
+padding: 0;
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+display: flex;
+justify-content: center;
+align-items: center;
+min-height: 100vh;
+font-family: 'Arial', sans-serif;
+overflow: hidden;
+}
+
+.robot-container {
+position: relative;
+display: flex;
+flex-direction: column;
+align-items: center;
+animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+0%, 100% { transform: translateY(0px); }
+50% { transform: translateY(-15px); }
+}
+
+.robot-head {
+position: relative;
+width: 280px;
+height: 220px;
+background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+border-radius: 140px 140px 110px 110px;
+box-shadow: 
+    12px 12px 30px rgba(0,0,0,0.15),
+    -12px -12px 30px rgba(255,255,255,0.8),
+    inset 3px 3px 8px rgba(255,255,255,0.5);
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+z-index: 10;
+margin-bottom: -15px;
+}
+
+.face-screen {
+position: absolute;
+width: 220px;
+height: 160px;
+background: #000;
+border-radius: 110px 110px 80px 80px;
+display: flex;
+align-items: center;
+justify-content: center;
+overflow: hidden;
+box-shadow: 
+    inset 0 0 30px rgba(0,255,255,0.3),
+    0 0 25px rgba(0,0,0,0.5);
+}
+
+.eyes-container {
+display: flex;
+align-items: center;
+justify-content: space-between;
+width: 180px;
+height: 100%;
+position: relative;
+gap: 20px;
+}
+
+.eye {
+width: 70px;
+height: 40px;
+background: linear-gradient(180deg, #00ffff, #00cccc);
+border-radius: 35px;
+position: relative;
+box-shadow: 
+    0 0 20px rgba(0,255,255,0.6),
+    inset 0 2px 6px rgba(255,255,255,0.3);
+transition: all 0.3s ease;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.eye::before {
+content: '';
+position: absolute;
+width: 20px;
+height: 20px;
+background: radial-gradient(circle, rgba(255,255,255,0.9), rgba(255,255,255,0.3));
+border-radius: 50%;
+top: 50%;
+left: 35%;
+transform: translateY(-50%);
+animation: eyeShine 2s ease-in-out infinite;
+}
+
+.eye::after {
+content: '';
+position: absolute;
+width: 15px;
+height: 15px;
+background: #00ffff;
+border-radius: 50%;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+box-shadow: 0 0 12px rgba(0,255,255,0.8);
+}
+
+@keyframes eyeShine {
+0%, 100% { opacity: 0.8; }
+50% { opacity: 1; }
+}
+
+.eye.blink {
+animation: blinkAnimation 0.3s ease-in-out;
+}
+
+@keyframes blinkAnimation {
+0%, 100% { 
+    height: 40px; 
+    transform: scaleY(1);
+}
+50% { 
+    height: 3px; 
+    transform: scaleY(0.1);
+}
+}
+
+.eye.happy {
+height: 20px;
+border-radius: 35px 35px 20px 20px;
+animation: happyEyes 0.5s ease-in-out;
+}
+
+@keyframes happyEyes {
+0% { 
+    height: 40px; 
+    border-radius: 35px;
+}
+100% { 
+    height: 20px; 
+    border-radius: 35px 35px 20px 20px;
+}
+}
+
+.mouth-container {
+position: absolute;
+bottom: 15px;
+left: 50%;
+transform: translateX(-50%);
+}
+
+.mouth {
+width: 50px;
+height: 25px;
+background: #00ffff;
+border-radius: 25px;
+position: relative;
+box-shadow: 
+    0 0 15px rgba(0,255,255,0.5),
+    inset 0 2px 5px rgba(255,255,255,0.3);
+transition: all 0.15s ease;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.mouth.talking {
+animation: realisticTalk 0.8s infinite;
+}
+
+@keyframes realisticTalk {
+/* Neutral/closed mouth */
+0% { 
+    width: 50px; 
+    height: 8px; 
+    border-radius: 25px;
+    background: #00ffff;
+    transform: rotate(0deg);
+}
+/* 'A' sound - wide oval */
+12.5% { 
+    width: 65px; 
+    height: 35px; 
+    border-radius: 50%;
+    background: #00ffff;
+    transform: rotate(0deg);
+}
+/* 'E' sound - horizontal oval */
+25% { 
+    width: 70px; 
+    height: 20px; 
+    border-radius: 35px;
+    background: #00ffff;
+    transform: rotate(0deg);
+}
+/* 'I' sound - narrow vertical oval */
+37.5% { 
+    width: 30px; 
+    height: 40px; 
+    border-radius: 15px;
+    background: #00ffff;
+    transform: rotate(0deg);
+}
+/* 'O' sound - perfect circle */
+50% { 
+    width: 45px; 
+    height: 45px; 
+    border-radius: 50%;
+    background: #00ffff;
+    transform: rotate(0deg);
+}
+/* 'U' sound - small circle */
+62.5% { 
+    width: 25px; 
+    height: 25px; 
+    border-radius: 50%;
+    background: #00ffff;
+    transform: rotate(0deg);
+}
+/* Consonant - line shape */
+75% { 
+    width: 60px; 
+    height: 5px; 
+    border-radius: 3px;
+    background: #00ffff;
+    transform: rotate(0deg);
+}
+/* Crescent moon shape for 'M' sounds */
+87.5% { 
+    width: 40px; 
+    height: 20px; 
+    border-radius: 20px 20px 40px 40px;
+    background: #00ffff;
+    transform: rotate(0deg);
+}
+/* Back to neutral */
+100% { 
+    width: 50px; 
+    height: 8px; 
+    border-radius: 25px;
+    background: #00ffff;
+    transform: rotate(0deg);
+}
+}
+
+.mouth.smile {
+width: 80px;
+height: 15px;
+border-radius: 40px 40px 80px 80px;
+background: linear-gradient(180deg, #00ffff, #00aaaa);
+animation: smileGlow 0.5s ease-in-out;
+transform: rotate(0deg);
+}
+
+.mouth.surprised {
+width: 35px;
+height: 50px;
+border-radius: 50%;
+background: #00ffff;
+animation: surpriseGlow 0.3s ease-in-out;
+}
+
+.mouth.laugh {
+width: 90px;
+height: 25px;
+border-radius: 45px 45px 90px 90px;
+background: linear-gradient(180deg, #00ffff, #00aaaa);
+animation: laughShake 0.1s infinite;
+}
+
+@keyframes laughShake {
+0%, 100% { transform: rotate(-1deg); }
+50% { transform: rotate(1deg); }
+}
+
+.mouth.whistle {
+width: 20px;
+height: 20px;
+border-radius: 50%;
+background: #00ffff;
+border: 3px solid #00aaaa;
+}
+
+.mouth.frown {
+width: 70px;
+height: 15px;
+border-radius: 80px 80px 35px 35px;
+background: #00ffff;
+transform: rotate(180deg);
+}
+
+@keyframes smileGlow {
+0%, 100% { box-shadow: 0 0 15px rgba(0,255,255,0.5); }
+50% { box-shadow: 0 0 25px rgba(0,255,255,0.8), 0 0 35px rgba(255,215,0,0.4); }
+}
+
+@keyframes surpriseGlow {
+0%, 100% { box-shadow: 0 0 15px rgba(0,255,255,0.5); }
+50% { box-shadow: 0 0 30px rgba(0,255,255,0.9); }
+}
+
+@keyframes smileGlow {
+0%, 100% { box-shadow: 0 0 10px rgba(0,255,255,0.5); }
+50% { box-shadow: 0 0 25px rgba(0,255,255,0.8); }
+}
+
+.robot-body {
+width: 180px;
+height: 150px;
+background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+border-radius: 90px 90px 60px 60px;
+position: relative;
+box-shadow: 
+    12px 12px 30px rgba(0,0,0,0.15),
+    -12px -12px 30px rgba(255,255,255,0.8);
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.body-panel {
+width: 120px;
+height: 90px;
+background: linear-gradient(145deg, #e9ecef, #dee2e6);
+border-radius: 30px;
+box-shadow: 
+    inset 5px 5px 12px rgba(0,0,0,0.1),
+    inset -5px -5px 12px rgba(255,255,255,0.8);
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.body-light {
+width: 18px;
+height: 18px;
+background: #00ff88;
+border-radius: 50%;
+box-shadow: 0 0 15px #00ff88;
+animation: bodyLightPulse 2s ease-in-out infinite;
+}
+
+@keyframes bodyLightPulse {
+0%, 100% { opacity: 1; transform: scale(1); }
+50% { opacity: 0.7; transform: scale(1.2); }
+}
+
+.robot-arm {
+position: absolute;
+top: 20px;
+width: 60px;
+height: 25px;
+background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+border-radius: 30px;
+box-shadow: 
+    4px 4px 10px rgba(0,0,0,0.15),
+    -4px -4px 10px rgba(255,255,255,0.8);
+transform-origin: center;
+animation: armIdle 3s ease-in-out infinite;
+}
+
+.robot-arm.left {
+left: -45px;
+transform: rotate(-20deg);
+animation-delay: 0s;
+}
+
+.robot-arm.right {
+right: -45px;
+transform: rotate(20deg);
+animation-delay: 1s;
+}
+
+@keyframes armIdle {
+0%, 100% { transform: rotate(-20deg) translateY(0px); }
+50% { transform: rotate(-15deg) translateY(-5px); }
+}
+
+.robot-arm.right {
+animation-name: armIdleRight;
+}
+
+@keyframes armIdleRight {
+0%, 100% { transform: rotate(20deg) translateY(0px); }
+50% { transform: rotate(15deg) translateY(-5px); }
+}
+
+.robot-arm.wave {
+animation: waveAnimation 0.5s ease-in-out infinite;
+}
+
+@keyframes waveAnimation {
+0%, 100% { transform: rotate(-20deg); }
+50% { transform: rotate(-60deg); }
+}
+
+.robot-arm.wave.right {
+animation-name: waveAnimationRight;
+}
+
+@keyframes waveAnimationRight {
+0%, 100% { transform: rotate(20deg); }
+50% { transform: rotate(60deg); }
+}
+
+.robot-hand {
+position: absolute;
+right: -8px;
+top: 50%;
+transform: translateY(-50%);
+width: 16px;
+height: 16px;
+background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+border-radius: 50%;
+box-shadow: 
+    2px 2px 5px rgba(0,0,0,0.15),
+    -2px -2px 5px rgba(255,255,255,0.8);
+}
+
+.robot-arm.left .robot-hand {
+left: -8px;
+right: auto;
+}
+
+.robot-base {
+width: 210px;
+height: 45px;
+background: linear-gradient(145deg, #e9ecef, #dee2e6);
+border-radius: 105px;
+margin-top: 15px;
+box-shadow: 
+    8px 8px 25px rgba(0,0,0,0.2),
+    -8px -8px 25px rgba(255,255,255,0.8);
+position: relative;
+}
+
+.base-ring {
+position: absolute;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+width: 150px;
+height: 30px;
+border: 4px solid #00ffff;
+border-radius: 75px;
+box-shadow: 0 0 20px rgba(0,255,255,0.3);
+animation: baseRingGlow 2s ease-in-out infinite;
+}
+
+@keyframes baseRingGlow {
+0%, 100% { opacity: 0.7; }
+50% { opacity: 1; }
+}
+
+.antenna {
+position: absolute;
+top: -20px;
+left: 50%;
+transform: translateX(-50%);
+width: 6px;
+height: 25px;
+background: linear-gradient(180deg, #666, #999);
+border-radius: 3px;
+}
+
+.antenna::after {
+content: '';
+position: absolute;
+top: -8px;
+left: 50%;
+transform: translateX(-50%);
+width: 14px;
+height: 14px;
+background: radial-gradient(circle, #00ffff, #0080ff);
+border-radius: 50%;
+box-shadow: 0 0 20px #00ffff;
+animation: antennaPulse 1.5s infinite;
+}
+
+@keyframes antennaPulse {
+0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+50% { opacity: 0.7; transform: translateX(-50%) scale(1.3); }
+}
+
+.controls {
+position: fixed;
+bottom: 30px;
+left: 50%;
+transform: translateX(-50%);
+display: flex;
+gap: 15px;
+flex-wrap: wrap;
+justify-content: center;
+}
+
+.control-btn {
+padding: 12px 20px;
+background: linear-gradient(145deg, #4CAF50, #45a049);
+color: white;
+border: none;
+border-radius: 25px;
+cursor: pointer;
+font-size: 14px;
+font-weight: bold;
+box-shadow: 
+    5px 5px 15px rgba(0,0,0,0.2),
+    -5px -5px 15px rgba(255,255,255,0.1);
+transition: all 0.3s ease;
+min-width: 80px;
+}
+
+.control-btn:hover {
+transform: translateY(-2px);
+box-shadow: 
+    7px 7px 20px rgba(0,0,0,0.3),
+    -7px -7px 20px rgba(255,255,255,0.15);
+}
+
+.control-btn:active {
+transform: translateY(0);
+}
+
+.control-btn.smile-btn {
+background: linear-gradient(145deg, #FF9800, #F57C00);
+}
+
+.control-btn.talk-btn {
+background: linear-gradient(145deg, #2196F3, #1976D2);
+}
+
+.control-btn.wave-btn {
+background: linear-gradient(145deg, #9C27B0, #7B1FA2);
+}
+
+.control-btn.blink-btn {
+background: linear-gradient(145deg, #FF5722, #D84315);
+}
+
+.cheek-blush {
+position: absolute;
+width: 15px;
+height: 15px;
+background: rgba(255, 105, 180, 0);
+border-radius: 50%;
+transition: all 0.3s ease;
+top: 45%;
+}
+
+.cheek-left {
+left: 15px;
+}
+
+.cheek-right {
+right: 15px;
+}
+
+.robot-head.happy .cheek-blush {
+background: rgba(255, 105, 180, 0.8);
+box-shadow: 0 0 15px rgba(255, 105, 180, 0.5);
+}
+
+.excitement-particles {
+position: absolute;
+top: -20px;
+left: 50%;
+transform: translateX(-50%);
+pointer-events: none;
+}
+
+.particle {
+position: absolute;
+width: 4px;
+height: 4px;
+background: #00ffff;
+border-radius: 50%;
+opacity: 0;
+}
+
+.particle.animate {
+animation: particleFloat 1s ease-out forwards;
+}
+
+@keyframes particleFloat {
+0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+100% {
+    opacity: 0;
+    transform: translateY(-50px) scale(0);
+}
+}
+</style>
+</head>
+<body>
+<div class="robot-container">
+<div class="robot-head" id="robotHead">
+<div class="antenna"></div>
+<div class="cheek-blush cheek-left"></div>
+<div class="cheek-blush cheek-right"></div>
+<div class="excitement-particles" id="particles"></div>
+
+<div class="face-screen">
+    <div class="eyes-container">
+        <div class="eye" id="leftEye"></div>
+        <div class="eye" id="rightEye"></div>
+    </div>
+    <div class="mouth-container">
+        <div class="mouth" id="mouth"></div>
+    </div>
+</div>
+</div>
+
+<div class="robot-body">
+<div class="robot-arm left" id="leftArm">
+    <div class="robot-hand"></div>
+</div>
+<div class="robot-arm right" id="rightArm">
+    <div class="robot-hand"></div>
+</div>
+<div class="body-panel">
+    <div class="body-light"></div>
+</div>
+</div>
+
+<div class="robot-base">
+<div class="base-ring"></div>
+</div>
+</div>
+
+<div class="controls">
+<button class="control-btn talk-btn" id="talkBtn">Talk</button>
+<button class="control-btn smile-btn" id="smileBtn">Smile</button>
+<button class="control-btn wave-btn" id="waveBtn">Wave</button>
+<button class="control-btn blink-btn" id="blinkBtn">Blink</button>
+<button class="control-btn" id="surpriseBtn" style="background: linear-gradient(145deg, #E91E63, #C2185B);">Surprise</button>
+<button class="control-btn" id="laughBtn" style="background: linear-gradient(145deg, #FFC107, #FF8F00);">Laugh</button>
+<button class="control-btn" id="resetBtn">Reset</button>
+</div>
+
+<script>
+class EilikRobot {
+constructor() {
+    this.robotHead = document.getElementById('robotHead');
+    this.mouth = document.getElementById('mouth');
+    this.leftEye = document.getElementById('leftEye');
+    this.rightEye = document.getElementById('rightEye');
+    this.leftArm = document.getElementById('leftArm');
+    this.rightArm = document.getElementById('rightArm');
+    this.particles = document.getElementById('particles');
+    
+    this.talkBtn = document.getElementById('talkBtn');
+    this.smileBtn = document.getElementById('smileBtn');
+    this.waveBtn = document.getElementById('waveBtn');
+    this.blinkBtn = document.getElementById('blinkBtn');
+    this.surpriseBtn = document.getElementById('surpriseBtn');
+    this.laughBtn = document.getElementById('laughBtn');
+    this.resetBtn = document.getElementById('resetBtn');
+    
+    this.isTalking = false;
+    this.isSmiling = false;
+    this.isWaving = false;
+    this.currentExpression = 'neutral';
+    this.talkInterval = null;
+    this.blinkInterval = null;
+    
+    this.initEventListeners();
+    this.startAutoBlinking();
+    
+    // Auto demo
+    setTimeout(() => this.demo(), 2000);
+}
+
+initEventListeners() {
+    this.talkBtn.addEventListener('click', () => this.toggleTalk());
+    this.smileBtn.addEventListener('click', () => this.toggleSmile());
+    this.waveBtn.addEventListener('click', () => this.toggleWave());
+    this.blinkBtn.addEventListener('click', () => this.blink());
+    this.surpriseBtn.addEventListener('click', () => this.surprise());
+    this.laughBtn.addEventListener('click', () => this.laugh());
+    this.resetBtn.addEventListener('click', () => this.reset());
+}
+
+toggleTalk() {
+    if (this.isTalking) {
+        this.stopTalking();
+    } else {
+        this.startTalking();
+    }
+}
+
+startTalking() {
+    this.isTalking = true;
+    this.clearMouthClasses();
+    this.mouth.classList.add('talking');
+    this.currentExpression = 'talking';
+    this.talkBtn.textContent = 'Stop Talk';
+    this.talkBtn.style.background = 'linear-gradient(145deg, #f44336, #d32f2f)';
+    
+    // Add excitement particles while talking
+    this.talkInterval = setInterval(() => {
+        this.createParticle();
+    }, 300);
+}
+
+stopTalking() {
+    this.isTalking = false;
+    this.clearMouthClasses();
+    this.currentExpression = 'neutral';
+    this.talkBtn.textContent = 'Talk';
+    this.talkBtn.style.background = 'linear-gradient(145deg, #2196F3, #1976D2)';
+    
+    if (this.talkInterval) {
+        clearInterval(this.talkInterval);
+        this.talkInterval = null;
+    }
+}
+
+toggleSmile() {
+    if (this.isSmiling) {
+        this.stopSmiling();
+    } else {
+        this.startSmiling();
+    }
+}
+
+startSmiling() {
+    this.isSmiling = true;
+    this.clearMouthClasses();
+    this.mouth.classList.add('smile');
+    this.leftEye.classList.add('happy');
+    this.rightEye.classList.add('happy');
+    this.robotHead.classList.add('happy');
+    this.currentExpression = 'smile';
+    this.smileBtn.textContent = 'Stop Smile';
+    this.smileBtn.style.background = 'linear-gradient(145deg, #f44336, #d32f2f)';
+    
+    // Add happy particles
+    for (let i = 0; i < 5; i++) {
+        setTimeout(() => this.createParticle(), i * 100);
+    }
+}
+
+stopSmiling() {
+    this.isSmiling = false;
+    this.clearMouthClasses();
+    this.leftEye.classList.remove('happy');
+    this.rightEye.classList.remove('happy');
+    this.robotHead.classList.remove('happy');
+    this.currentExpression = 'neutral';
+    this.smileBtn.textContent = 'Smile';
+    this.smileBtn.style.background = 'linear-gradient(145deg, #FF9800, #F57C00)';
+}
+
+toggleWave() {
+    if (this.isWaving) {
+        this.stopWaving();
+    } else {
+        this.startWaving();
+    }
+}
+
+startWaving() {
+    this.isWaving = true;
+    this.rightArm.classList.add('wave');
+    this.waveBtn.textContent = 'Stop Wave';
+    this.waveBtn.style.background = 'linear-gradient(145deg, #f44336, #d32f2f)';
+}
+
+stopWaving() {
+    this.isWaving = false;
+    this.rightArm.classList.remove('wave');
+    this.waveBtn.textContent = 'Wave';
+    this.waveBtn.style.background = 'linear-gradient(145deg, #9C27B0, #7B1FA2)';
+}
+
+surprise() {
+    this.clearMouthClasses();
+    this.mouth.classList.add('surprised');
+    this.currentExpression = 'surprised';
+    
+    // Add surprised eyes effect
+    this.leftEye.style.transform = 'scale(1.2)';
+    this.rightEye.style.transform = 'scale(1.2)';
+    
+    // Create surprise particles
+    for (let i = 0; i < 3; i++) {
+        setTimeout(() => this.createParticle(), i * 50);
+    }
+    
+    // Reset after animation
+    setTimeout(() => {
+        this.leftEye.style.transform = 'scale(1)';
+        this.rightEye.style.transform = 'scale(1)';
+        if (this.currentExpression === 'surprised') {
+            this.clearMouthClasses();
+            this.currentExpression = 'neutral';
+        }
+    }, 1500);
+}
+
+laugh() {
+    this.clearMouthClasses();
+    this.mouth.classList.add('laugh');
+    this.leftEye.classList.add('happy');
+    this.rightEye.classList.add('happy');
+    this.robotHead.classList.add('happy');
+    this.currentExpression = 'laugh';
+    
+    // Shake the robot slightly while laughing
+    this.robotHead.style.animation = 'none';
+    this.robotHead.style.animation = 'laughShake 0.1s infinite';
+    
+    // Create lots of happy particles
+    for (let i = 0; i < 8; i++) {
+        setTimeout(() => this.createParticle(), i * 100);
+    }
+    
+    // Reset after 3 seconds
+    setTimeout(() => {
+        this.robotHead.style.animation = '';
+        this.leftEye.classList.remove('happy');
+        this.rightEye.classList.remove('happy');
+        this.robotHead.classList.remove('happy');
+        if (this.currentExpression === 'laugh') {
+            this.clearMouthClasses();
+            this.currentExpression = 'neutral';
+        }
+    }, 3000);
+}
+
+clearMouthClasses() {
+    this.mouth.classList.remove('talking', 'smile', 'surprised', 'laugh', 'whistle', 'frown');
+}
+
+blink() {
+    this.leftEye.classList.add('blink');
+    this.rightEye.classList.add('blink');
+    setTimeout(() => {
+        this.leftEye.classList.remove('blink');
+        this.rightEye.classList.remove('blink');
+    }, 300);
+}
+
+startAutoBlinking() {
+    this.blinkInterval = setInterval(() => {
+        if (!this.isSmiling && Math.random() > 0.3) {
+            this.blink();
+        }
+    }, 3000 + Math.random() * 2000);
+}
+
+createParticle() {
+    const particle = document.createElement('div');
+    particle.className = 'particle';
+    particle.style.left = (Math.random() * 40 - 20) + 'px';
+    particle.style.animationDelay = Math.random() * 0.5 + 's';
+    
+    this.particles.appendChild(particle);
+    
+    setTimeout(() => {
+        particle.classList.add('animate');
+    }, 10);
+    
+    setTimeout(() => {
+        particle.remove();
+    }, 1000);
+}
+
+reset() {
+    this.stopTalking();
+    this.stopSmiling();
+    this.stopWaving();
+    this.clearMouthClasses();
+    this.currentExpression = 'neutral';
+    
+    // Reset eyes
+    this.leftEye.style.transform = 'scale(1)';
+    this.rightEye.style.transform = 'scale(1)';
+    this.robotHead.style.animation = '';
+}
+
+demo() {
+    // Cute demo sequence
+    setTimeout(() => this.blink(), 500);
+    setTimeout(() => this.startSmiling(), 1000);
+    setTimeout(() => this.stopSmiling(), 2500);
+    setTimeout(() => this.startWaving(), 3000);
+    setTimeout(() => this.stopWaving(), 4500);
+    setTimeout(() => this.startTalking(), 5000);
+    setTimeout(() => this.stopTalking(), 7000);
+    setTimeout(() => {
+        this.startSmiling();
+        this.startWaving();
+        setTimeout(() => {
+            this.stopSmiling();
+            this.stopWaving();
+        }, 2000);
+    }, 7500);
+}
+}
+
+// Initialize the Eilik robot when page loads
+document.addEventListener('DOMContentLoaded', () => {
+new EilikRobot();
+});
+
+// Enhanced eye tracking
+document.addEventListener('mousemove', (e) => {
+const leftEye = document.getElementById('leftEye');
+const rightEye = document.getElementById('rightEye');
+const robot = document.querySelector('.robot-head');
+const rect = robot.getBoundingClientRect();
+const centerX = rect.left + rect.width / 2;
+const centerY = rect.top + rect.height / 2;
+
+const deltaX = (e.clientX - centerX) / 30;
+const deltaY = (e.clientY - centerY) / 30;
+
+const eyes = [leftEye, rightEye];
+eyes.forEach(eye => {
+    if (!eye.classList.contains('happy') && !eye.classList.contains('blink')) {
+        const maxMove = 8;
+        const moveX = Math.max(-maxMove, Math.min(maxMove, deltaX));
+        const moveY = Math.max(-maxMove, Math.min(maxMove, deltaY));
+        eye.style.transform = `translate(${moveX}px, ${moveY}px)`;
+    } else {
+        eye.style.transform = 'translate(0px, 0px)';
+    }
+});
+});
+</script>
+</body>
+</html>
