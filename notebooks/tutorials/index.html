@@ -32,10 +32,10 @@ animation: float 4s ease-in-out infinite;
 
 .robot-head {
 position: relative;
-width: 280px;
-height: 220px;
+width: 320px;
+height: 280px;
 background: linear-gradient(145deg, #f8f9fa, #e9ecef);
-border-radius: 140px 140px 110px 110px;
+border-radius: 160px 160px 140px 140px;
 box-shadow: 
     12px 12px 30px rgba(0,0,0,0.15),
     -12px -12px 30px rgba(255,255,255,0.8),
@@ -50,10 +50,10 @@ margin-bottom: -15px;
 
 .face-screen {
 position: absolute;
-width: 220px;
-height: 160px;
+width: 260px;
+height: 200px;
 background: #000;
-border-radius: 110px 110px 80px 80px;
+border-radius: 130px 130px 100px 100px;
 display: flex;
 align-items: center;
 justify-content: center;
@@ -67,17 +67,17 @@ box-shadow:
 display: flex;
 align-items: center;
 justify-content: space-between;
-width: 180px;
+width: 200px;
 height: 100%;
 position: relative;
-gap: 20px;
+gap: 30px;
 }
 
 .eye {
-width: 70px;
-height: 40px;
+width: 90px;
+height: 50px;
 background: linear-gradient(180deg, #00ffff, #00cccc);
-border-radius: 35px;
+border-radius: 45px;
 position: relative;
 box-shadow: 
     0 0 20px rgba(0,255,255,0.6),
@@ -91,27 +91,14 @@ justify-content: center;
 .eye::before {
 content: '';
 position: absolute;
-width: 20px;
-height: 20px;
+width: 25px;
+height: 25px;
 background: radial-gradient(circle, rgba(255,255,255,0.9), rgba(255,255,255,0.3));
 border-radius: 50%;
 top: 50%;
 left: 35%;
 transform: translateY(-50%);
 animation: eyeShine 2s ease-in-out infinite;
-}
-
-.eye::after {
-content: '';
-position: absolute;
-width: 15px;
-height: 15px;
-background: #00ffff;
-border-radius: 50%;
-top: 50%;
-left: 50%;
-transform: translate(-50%, -50%);
-box-shadow: 0 0 12px rgba(0,255,255,0.8);
 }
 
 @keyframes eyeShine {
@@ -125,44 +112,72 @@ animation: blinkAnimation 0.3s ease-in-out;
 
 @keyframes blinkAnimation {
 0%, 100% { 
-    height: 40px; 
+    height: 50px; 
     transform: scaleY(1);
 }
 50% { 
-    height: 3px; 
+    height: 4px; 
     transform: scaleY(0.1);
 }
 }
 
 .eye.happy {
-height: 20px;
-border-radius: 35px 35px 20px 20px;
+height: 25px;
+border-radius: 45px 45px 25px 25px;
 animation: happyEyes 0.5s ease-in-out;
 }
 
 @keyframes happyEyes {
 0% { 
-    height: 40px; 
-    border-radius: 35px;
+    height: 50px; 
+    border-radius: 45px;
 }
 100% { 
-    height: 20px; 
-    border-radius: 35px 35px 20px 20px;
+    height: 25px; 
+    border-radius: 45px 45px 25px 25px;
 }
+}
+
+.eye.surprised {
+height: 60px;
+border-radius: 45px;
+animation: surprisedEyes 0.3s ease-in-out;
+}
+
+@keyframes surprisedEyes {
+0% { 
+    height: 50px; 
+    transform: scale(1);
+}
+100% { 
+    height: 60px; 
+    transform: scale(1.1);
+}
+}
+
+.eye.laugh {
+height: 20px;
+border-radius: 45px 45px 20px 20px;
+animation: laughEyes 0.1s infinite;
+}
+
+@keyframes laughEyes {
+0%, 100% { transform: scaleY(1); }
+50% { transform: scaleY(0.8); }
 }
 
 .mouth-container {
 position: absolute;
-bottom: 15px;
+bottom: 25px;
 left: 50%;
 transform: translateX(-50%);
 }
 
 .mouth {
-width: 50px;
-height: 25px;
+width: 60px;
+height: 30px;
 background: #00ffff;
-border-radius: 25px;
+border-radius: 30px;
 position: relative;
 box-shadow: 
     0 0 15px rgba(0,255,255,0.5),
@@ -180,99 +195,99 @@ animation: realisticTalk 0.8s infinite;
 @keyframes realisticTalk {
 /* Neutral/closed mouth */
 0% { 
-    width: 50px; 
-    height: 8px; 
-    border-radius: 25px;
+    width: 60px; 
+    height: 10px; 
+    border-radius: 30px;
     background: #00ffff;
     transform: rotate(0deg);
 }
 /* 'A' sound - wide oval */
 12.5% { 
-    width: 65px; 
-    height: 35px; 
+    width: 75px; 
+    height: 40px; 
     border-radius: 50%;
     background: #00ffff;
     transform: rotate(0deg);
 }
 /* 'E' sound - horizontal oval */
 25% { 
-    width: 70px; 
-    height: 20px; 
-    border-radius: 35px;
+    width: 80px; 
+    height: 25px; 
+    border-radius: 40px;
     background: #00ffff;
     transform: rotate(0deg);
 }
 /* 'I' sound - narrow vertical oval */
 37.5% { 
-    width: 30px; 
-    height: 40px; 
-    border-radius: 15px;
+    width: 35px; 
+    height: 45px; 
+    border-radius: 18px;
     background: #00ffff;
     transform: rotate(0deg);
 }
 /* 'O' sound - perfect circle */
 50% { 
-    width: 45px; 
-    height: 45px; 
+    width: 50px; 
+    height: 50px; 
     border-radius: 50%;
     background: #00ffff;
     transform: rotate(0deg);
 }
 /* 'U' sound - small circle */
 62.5% { 
-    width: 25px; 
-    height: 25px; 
+    width: 30px; 
+    height: 30px; 
     border-radius: 50%;
     background: #00ffff;
     transform: rotate(0deg);
 }
 /* Consonant - line shape */
 75% { 
-    width: 60px; 
-    height: 5px; 
+    width: 70px; 
+    height: 6px; 
     border-radius: 3px;
     background: #00ffff;
     transform: rotate(0deg);
 }
 /* Crescent moon shape for 'M' sounds */
 87.5% { 
-    width: 40px; 
-    height: 20px; 
-    border-radius: 20px 20px 40px 40px;
+    width: 45px; 
+    height: 25px; 
+    border-radius: 25px 25px 45px 45px;
     background: #00ffff;
     transform: rotate(0deg);
 }
 /* Back to neutral */
 100% { 
-    width: 50px; 
-    height: 8px; 
-    border-radius: 25px;
+    width: 60px; 
+    height: 10px; 
+    border-radius: 30px;
     background: #00ffff;
     transform: rotate(0deg);
 }
 }
 
 .mouth.smile {
-width: 80px;
-height: 15px;
-border-radius: 40px 40px 80px 80px;
+width: 100px;
+height: 20px;
+border-radius: 50px 50px 100px 100px;
 background: linear-gradient(180deg, #00ffff, #00aaaa);
 animation: smileGlow 0.5s ease-in-out;
 transform: rotate(0deg);
 }
 
 .mouth.surprised {
-width: 35px;
-height: 50px;
+width: 40px;
+height: 60px;
 border-radius: 50%;
 background: #00ffff;
 animation: surpriseGlow 0.3s ease-in-out;
 }
 
 .mouth.laugh {
-width: 90px;
-height: 25px;
-border-radius: 45px 45px 90px 90px;
+width: 110px;
+height: 30px;
+border-radius: 55px 55px 110px 110px;
 background: linear-gradient(180deg, #00ffff, #00aaaa);
 animation: laughShake 0.1s infinite;
 }
@@ -283,17 +298,17 @@ animation: laughShake 0.1s infinite;
 }
 
 .mouth.whistle {
-width: 20px;
-height: 20px;
+width: 25px;
+height: 25px;
 border-radius: 50%;
 background: #00ffff;
 border: 3px solid #00aaaa;
 }
 
 .mouth.frown {
-width: 70px;
-height: 15px;
-border-radius: 80px 80px 35px 35px;
+width: 85px;
+height: 20px;
+border-radius: 100px 100px 40px 40px;
 background: #00ffff;
 transform: rotate(180deg);
 }
@@ -308,16 +323,11 @@ transform: rotate(180deg);
 50% { box-shadow: 0 0 30px rgba(0,255,255,0.9); }
 }
 
-@keyframes smileGlow {
-0%, 100% { box-shadow: 0 0 10px rgba(0,255,255,0.5); }
-50% { box-shadow: 0 0 25px rgba(0,255,255,0.8); }
-}
-
 .robot-body {
-width: 180px;
-height: 150px;
+width: 200px;
+height: 160px;
 background: linear-gradient(145deg, #f8f9fa, #e9ecef);
-border-radius: 90px 90px 60px 60px;
+border-radius: 100px 100px 70px 70px;
 position: relative;
 box-shadow: 
     12px 12px 30px rgba(0,0,0,0.15),
@@ -328,10 +338,10 @@ justify-content: center;
 }
 
 .body-panel {
-width: 120px;
-height: 90px;
+width: 140px;
+height: 100px;
 background: linear-gradient(145deg, #e9ecef, #dee2e6);
-border-radius: 30px;
+border-radius: 35px;
 box-shadow: 
     inset 5px 5px 12px rgba(0,0,0,0.1),
     inset -5px -5px 12px rgba(255,255,255,0.8);
@@ -341,8 +351,8 @@ justify-content: center;
 }
 
 .body-light {
-width: 18px;
-height: 18px;
+width: 20px;
+height: 20px;
 background: #00ff88;
 border-radius: 50%;
 box-shadow: 0 0 15px #00ff88;
@@ -356,11 +366,11 @@ animation: bodyLightPulse 2s ease-in-out infinite;
 
 .robot-arm {
 position: absolute;
-top: 20px;
-width: 60px;
-height: 25px;
+top: 25px;
+width: 70px;
+height: 30px;
 background: linear-gradient(145deg, #f8f9fa, #e9ecef);
-border-radius: 30px;
+border-radius: 35px;
 box-shadow: 
     4px 4px 10px rgba(0,0,0,0.15),
     -4px -4px 10px rgba(255,255,255,0.8);
@@ -369,13 +379,13 @@ animation: armIdle 3s ease-in-out infinite;
 }
 
 .robot-arm.left {
-left: -45px;
+left: -50px;
 transform: rotate(-20deg);
 animation-delay: 0s;
 }
 
 .robot-arm.right {
-right: -45px;
+right: -50px;
 transform: rotate(20deg);
 animation-delay: 1s;
 }
@@ -414,11 +424,11 @@ animation-name: waveAnimationRight;
 
 .robot-hand {
 position: absolute;
-right: -8px;
+right: -10px;
 top: 50%;
 transform: translateY(-50%);
-width: 16px;
-height: 16px;
+width: 20px;
+height: 20px;
 background: linear-gradient(145deg, #f8f9fa, #e9ecef);
 border-radius: 50%;
 box-shadow: 
@@ -427,15 +437,15 @@ box-shadow:
 }
 
 .robot-arm.left .robot-hand {
-left: -8px;
+left: -10px;
 right: auto;
 }
 
 .robot-base {
-width: 210px;
-height: 45px;
+width: 240px;
+height: 50px;
 background: linear-gradient(145deg, #e9ecef, #dee2e6);
-border-radius: 105px;
+border-radius: 120px;
 margin-top: 15px;
 box-shadow: 
     8px 8px 25px rgba(0,0,0,0.2),
@@ -448,10 +458,10 @@ position: absolute;
 top: 50%;
 left: 50%;
 transform: translate(-50%, -50%);
-width: 150px;
-height: 30px;
+width: 170px;
+height: 35px;
 border: 4px solid #00ffff;
-border-radius: 75px;
+border-radius: 85px;
 box-shadow: 0 0 20px rgba(0,255,255,0.3);
 animation: baseRingGlow 2s ease-in-out infinite;
 }
@@ -463,23 +473,23 @@ animation: baseRingGlow 2s ease-in-out infinite;
 
 .antenna {
 position: absolute;
-top: -20px;
+top: -25px;
 left: 50%;
 transform: translateX(-50%);
-width: 6px;
-height: 25px;
+width: 8px;
+height: 30px;
 background: linear-gradient(180deg, #666, #999);
-border-radius: 3px;
+border-radius: 4px;
 }
 
 .antenna::after {
 content: '';
 position: absolute;
-top: -8px;
+top: -10px;
 left: 50%;
 transform: translateX(-50%);
-width: 14px;
-height: 14px;
+width: 18px;
+height: 18px;
 background: radial-gradient(circle, #00ffff, #0080ff);
 border-radius: 50%;
 box-shadow: 0 0 20px #00ffff;
@@ -547,8 +557,8 @@ background: linear-gradient(145deg, #FF5722, #D84315);
 
 .cheek-blush {
 position: absolute;
-width: 15px;
-height: 15px;
+width: 20px;
+height: 20px;
 background: rgba(255, 105, 180, 0);
 border-radius: 50%;
 transition: all 0.3s ease;
@@ -556,11 +566,11 @@ top: 45%;
 }
 
 .cheek-left {
-left: 15px;
+left: 20px;
 }
 
 .cheek-right {
-right: 15px;
+right: 20px;
 }
 
 .robot-head.happy .cheek-blush {
@@ -786,11 +796,9 @@ stopWaving() {
 surprise() {
     this.clearMouthClasses();
     this.mouth.classList.add('surprised');
+    this.leftEye.classList.add('surprised');
+    this.rightEye.classList.add('surprised');
     this.currentExpression = 'surprised';
-    
-    // Add surprised eyes effect
-    this.leftEye.style.transform = 'scale(1.2)';
-    this.rightEye.style.transform = 'scale(1.2)';
     
     // Create surprise particles
     for (let i = 0; i < 3; i++) {
@@ -799,8 +807,8 @@ surprise() {
     
     // Reset after animation
     setTimeout(() => {
-        this.leftEye.style.transform = 'scale(1)';
-        this.rightEye.style.transform = 'scale(1)';
+        this.leftEye.classList.remove('surprised');
+        this.rightEye.classList.remove('surprised');
         if (this.currentExpression === 'surprised') {
             this.clearMouthClasses();
             this.currentExpression = 'neutral';
@@ -811,8 +819,8 @@ surprise() {
 laugh() {
     this.clearMouthClasses();
     this.mouth.classList.add('laugh');
-    this.leftEye.classList.add('happy');
-    this.rightEye.classList.add('happy');
+    this.leftEye.classList.add('laugh');
+    this.rightEye.classList.add('laugh');
     this.robotHead.classList.add('happy');
     this.currentExpression = 'laugh';
     
@@ -828,8 +836,8 @@ laugh() {
     // Reset after 3 seconds
     setTimeout(() => {
         this.robotHead.style.animation = '';
-        this.leftEye.classList.remove('happy');
-        this.rightEye.classList.remove('happy');
+        this.leftEye.classList.remove('laugh');
+        this.rightEye.classList.remove('laugh');
         this.robotHead.classList.remove('happy');
         if (this.currentExpression === 'laugh') {
             this.clearMouthClasses();
@@ -884,8 +892,9 @@ reset() {
     this.currentExpression = 'neutral';
     
     // Reset eyes
-    this.leftEye.style.transform = 'scale(1)';
-    this.rightEye.style.transform = 'scale(1)';
+    this.leftEye.classList.remove('happy', 'surprised', 'laugh');
+    this.rightEye.classList.remove('happy', 'surprised', 'laugh');
+    this.robotHead.classList.remove('happy');
     this.robotHead.style.animation = '';
 }
 
@@ -928,7 +937,8 @@ const deltaY = (e.clientY - centerY) / 30;
 
 const eyes = [leftEye, rightEye];
 eyes.forEach(eye => {
-    if (!eye.classList.contains('happy') && !eye.classList.contains('blink')) {
+    if (!eye.classList.contains('happy') && !eye.classList.contains('blink') && 
+        !eye.classList.contains('surprised') && !eye.classList.contains('laugh')) {
         const maxMove = 8;
         const moveX = Math.max(-maxMove, Math.min(maxMove, deltaX));
         const moveY = Math.max(-maxMove, Math.min(maxMove, deltaY));
