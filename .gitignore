@@ -2,3 +2,22 @@
 
 #files ending with .pt
 *.pt
+
+*env*
+
+# Generated audio files
+robot_audio/
+*.wav
+*.mp3
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Streamlit cache
+.streamlit/
+
+# Temporary files
+*.tmp
+*.temp
