@@ -1,0 +1,49 @@
+{
+    "questions": [
+      {
+        "id": 1,
+        "question": "What does 'git clone' do?",
+        "options": [
+          "Creates a new branch",
+          "Copies a remote repository",
+          "Commits changes",
+          "Merges two branches"
+        ],
+        "answer": 1
+      },
+      {
+        "id": 2,
+        "question": "Which of these is NOT a primitive data type in JavaScript?",
+        "options": [
+          "Number",
+          "String",
+          "Boolean",
+          "Object"
+        ],
+        "answer": 3
+      },
+      {
+        "id": 3,
+        "question": "What is the time complexity of a binary search algorithm?",
+        "options": [
+          "O(n)",
+          "O(log n)",
+          "O(n^2)",
+          "O(1)"
+        ],
+        "answer": 1
+      },
+      {
+          "id": 4,
+          "question": "In Python, what keyword is used to define a function?",
+          "options": [
+            "func",
+            "function",
+            "def",
+            "define"
+          ],
+          "answer": 2
+        }
+    ]
+  }
+  

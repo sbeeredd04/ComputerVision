@@ -9,126 +9,231 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from mediapipe.framework.formats import landmark_pb2
-import os # Import the os module to handle paths
-import math # Import for sine wave calculation
+import os
+import math
+import json
+import random
+import wave
+import hashlib
+
+# --- TTS Class for On-the-Fly Audio Generation ---
+# NOTE: You must set the 'GEMINI_API_KEY' environment variable for this to work.
+try:
+    # Corrected import based on the new library structure
+    from google import genai
+    from google.genai import types
+    IMPORT_SUCCESS = True
+except ImportError:
+    IMPORT_SUCCESS = False
+
+class RobotTTS:
+    def __init__(self):
+        if not IMPORT_SUCCESS:
+            raise ImportError("Could not import google.genai. Please run 'pip install google-genai'")
+        
+        api_key = os.getenv('GEMINI_API_KEY')
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY environment variable not set")
+        
+        # The client is used for the TTS model
+        self.client = genai.Client(api_key=api_key)
+        
+        self.audio_dir = "robot_audio"
+        os.makedirs(self.audio_dir, exist_ok=True)
+        
+        self.voice_name = 'Puck' # Default voice
+
+    def _get_audio_filename(self, text_or_name):
+        if ' ' in text_or_name:
+            text_hash = hashlib.md5(text_or_name.encode()).hexdigest()
+            return os.path.join(self.audio_dir, f"{text_hash}.wav")
+        return os.path.join(self.audio_dir, f"{text_or_name}.wav")
+
+    def _save_wave_file(self, filename, pcm_data):
+        try:
+            with wave.open(filename, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(24000)
+                wf.writeframes(pcm_data)
+            return True
+        except Exception as e:
+            print(f"ERROR: Failed to save audio to {filename}: {e}")
+            return False
+
+    def generate_speech(self, text, style="", filename_override=None):
+        audio_filename = self._get_audio_filename(filename_override or text)
+        if os.path.exists(audio_filename):
+            return audio_filename
+        
+        try:
+            print(f"Generating new audio for: {filename_override or text[:20]}...")
+            prompt = f"Say {style}: {text}" if style else text
+            
+            # --- CORRECTED API CALL FOR TTS based on new documentation ---
+            response = self.client.models.generate_content(
+                model="gemini-2.5-flash-preview-tts",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_modalities=["AUDIO"],
+                    speech_config=types.SpeechConfig(
+                        voice_config=types.VoiceConfig(
+                            prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                                voice_name=self.voice_name,
+                            )
+                        )
+                    ),
+                ))
+            
+            audio_data = response.candidates[0].content.parts[0].inline_data.data
+            if self._save_wave_file(audio_filename, audio_data):
+                return audio_filename
+        except Exception as e:
+            print(f"ERROR generating speech for '{text[:20]}...': {e}")
+        return None
 
 # --- INITIALIZATION ---
 
 # 1. State Machine and Global Variables
 STATE = "WAITING_FOR_PERSON"
 PERSON_CONFIDENCE_THRESHOLD = 0.6
-PERSON_PRESENCE_TIME_THRESHOLD = 1.0  # seconds
-YOUR_CLUB_WEBSITE_URL = "https://www.yourclubwebsite.com" # <--- IMPORTANT: Change this URL
+PERSON_PRESENCE_TIME_THRESHOLD = 1.0
+YOUR_CLUB_WEBSITE_URL = "https://www.yourclubwebsite.com"
 latest_gesture_result = None
-
-# --- IMPORTANT: Download this model from MediaPipe's website ---
-# https://ai.google.dev/edge/mediapipe/solutions/vision/gesture_recognizer/index#models
 MODEL_PATH = "gesture_recognizer.task"
+last_person_seen_time = time.time()
+PERSON_RESET_TIMEOUT = 2.0 # seconds
 
-# 2. YOLO Model for Person Detection
-print("Loading YOLO model...")
+# Quiz game variables
+quiz_questions = []
+current_question = None
+answered_questions = set()
+skip_available = True
+hovered_option = -1
+hover_start_time = None
+SELECTION_LOCK_DURATION = 3.0 # 3 seconds to lock answer by pointing
+user_is_winner = False
+
+# --- Load Quiz Questions ---
 try:
-    yolo_model = YOLO("yolov8n.pt")  # Uses a small, fast version of YOLOv8
-    print("YOLO model loaded successfully.")
+    with open('questions.json', 'r') as f:
+        quiz_questions = json.load(f)['questions']
+    print(f"Loaded {len(quiz_questions)} quiz questions.")
 except Exception as e:
-    print(f"Error loading YOLO model: {e}")
-    exit()
+    print(f"Error loading questions.json: {e}"); exit()
 
-# 3. MediaPipe Drawing Utilities
+# 2. Initialize TTS
+try:
+    tts = RobotTTS()
+except Exception as e:
+    print(f"Failed to initialize TTS: {e}"); exit()
+
+# --- HELPER & GAME FUNCTIONS ---
+def pregenerate_static_audio():
+    """Generates all necessary static audio files at startup."""
+    print("Pre-generating static audio files if they don't exist...")
+    tts.generate_speech("Hey there! Nice to meet you! Give me a thumbs up to learn about SoDA!", "cheerfully", "greeting")
+    tts.generate_speech("SoDA is the Software Development Association! We build cool projects and learn together.", "enthusiastically", "about_soda")
+    tts.generate_speech("Would you like to answer a question for a potential prize? Show thumbs up for yes, or thumbs down for no.", "playfully", "game_request")
+    tts.generate_speech("No problem! Show me a peace sign to get our QR code instead.", "calmly", "skip_quiz_prompt")
+    tts.generate_speech("Awesome! Here's how to join us!", "happily", "qr_show")
+    tts.generate_speech("Correct! You win! You can collect your prize later.", "excitedly", "correct_answer")
+    tts.generate_speech("Aww, that's not right. Better luck next time.", "gently", "wrong_answer")
+    tts.generate_speech("Show me a peace sign if you'd like to know more about us.", "invitingly", "qr_prompt_after_quiz")
+    tts.generate_speech("Thanks for playing! Goodbye!", "friendly", "goodbye")
+    print("Static audio ready.")
+
+def play_audio_by_name(filename):
+    filepath = os.path.join(tts.audio_dir, f"{filename}.wav")
+    if os.path.exists(filepath):
+        pygame.mixer.Sound(filepath).play()
+    else:
+        print(f"ERROR: Audio file not found: {filepath}")
+
+def play_dynamic_audio(text, style=""):
+    filepath = tts.generate_speech(text, style)
+    if filepath:
+        pygame.mixer.Sound(filepath).play()
+
+def get_new_question():
+    global current_question, answered_questions
+    available_q = [q for q in quiz_questions if q['id'] not in answered_questions]
+    if not available_q:
+        answered_questions = set()
+        available_q = quiz_questions
+        play_dynamic_audio("You've answered all the questions! Let's start over.", "excitedly")
+    current_question = random.choice(available_q)
+
+def reset_game_state():
+    global STATE, current_question, answered_questions, skip_available, user_is_winner, hovered_option, hover_start_time, person_detected_time
+    print("Resetting game state...")
+    STATE = "WAITING_FOR_PERSON"
+    current_question = None
+    answered_questions = set()
+    skip_available = True
+    user_is_winner = False
+    hovered_option = -1
+    hover_start_time = None
+    person_detected_time = None
+    pygame.mixer.stop()
+
+def process_gesture_result(result: vision.GestureRecognizerResult, output_image: mp.Image, timestamp_ms: int):
+    global latest_gesture_result, STATE
+    latest_gesture_result = result
+    if pygame.mixer.get_busy() or not result.gestures: return
+
+    gesture_name = result.gestures[0][0].category_name
+    
+    if STATE == "GREETING" and gesture_name == "Thumb_Up":
+        STATE = "EXPLAINING"
+        play_audio_by_name("about_soda")
+    elif STATE == "AWAITING_QUIZ_CHOICE":
+        if gesture_name == "Thumb_Up":
+            STATE = "QUIZ_MODE"
+            get_new_question()
+        elif gesture_name == "Thumb_Down":
+            STATE = "PROMPT_FOR_QR"
+            play_audio_by_name("skip_quiz_prompt")
+    elif STATE == "PROMPT_FOR_QR" and gesture_name == "Victory":
+        STATE = "SHOWING_QR"
+        play_audio_by_name("qr_show")
+
+# --- MAIN APPLICATION SETUP ---
+pregenerate_static_audio()
+yolo_model = YOLO("yolov8n.pt")
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
-
-# 4. Pygame for Audio Playback
-print("Initializing Pygame Mixer...")
-try:
-    pygame.mixer.init()
-    audio_folder = "robot_audio"
-    greeting_sound = pygame.mixer.Sound(os.path.join(audio_folder, "greeting.wav"))
-    soda_sound = pygame.mixer.Sound(os.path.join(audio_folder, "about_soda.wav"))
-    qr_prompt_sound = pygame.mixer.Sound(os.path.join(audio_folder, "qr_show.wav"))
-    print("Pygame Mixer initialized.")
-except Exception as e:
-    print(f"Error initializing Pygame or loading sound files: {e}")
-    exit()
-
-# 5. QR Code Generation
-print("Generating QR Code...")
+pygame.mixer.init()
 qr_code_obj = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_L)
 qr_code_obj.add_data(YOUR_CLUB_WEBSITE_URL)
 qr_code_obj.make(fit=True)
-qr_img_pil = qr_code_obj.make_image(fill_color="black", back_color="white").convert('RGB')
-qr_img_pil = qr_img_pil.resize((200, 200))
+qr_img_pil = qr_code_obj.make_image(fill_color="black", back_color="white").convert('RGB').resize((200, 200))
 qr_img_cv = cv2.cvtColor(np.array(qr_img_pil), cv2.COLOR_RGB2BGR)
-print("QR Code generated.")
 
-# --- HELPER FUNCTIONS ---
-
-def process_gesture_result(result: vision.GestureRecognizerResult, output_image: mp.Image, timestamp_ms: int):
-    """
-    Callback function to receive and process gesture recognition results.
-    """
-    global latest_gesture_result, STATE
-    latest_gesture_result = result
-
-    if result.gestures:
-        # Don't process gestures if audio is playing to avoid accidental triggers
-        if pygame.mixer.get_busy():
-            return
-
-        top_gesture = result.gestures[0][0]
-        gesture_name = top_gesture.category_name
-        
-        # --- State Transition Logic based on Gestures ---
-        if STATE == "GREETING" and gesture_name == "Thumb_Up":
-            print("Thumbs up detected! Explaining soda.")
-            STATE = "EXPLAINING"
-            soda_sound.play()
-        
-        elif STATE == "EXPLAINING" and gesture_name == "Victory":
-            print("Victory (peace) gesture detected! Showing QR code.")
-            STATE = "SHOWING_QR"
-            qr_prompt_sound.play() # Play sound when QR is shown
-
-# --- MAIN APPLICATION ---
-
-# Configure Gesture Recognizer
 base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
-options = vision.GestureRecognizerOptions(
-    base_options=base_options,
-    running_mode=vision.RunningMode.LIVE_STREAM,
-    num_hands=2,
-    result_callback=process_gesture_result
-)
+options = vision.GestureRecognizerOptions(base_options=base_options, running_mode=vision.RunningMode.LIVE_STREAM, num_hands=2, result_callback=process_gesture_result)
 
-# Initialize camera and windows
 print("Starting camera feed...")
 cap = cv2.VideoCapture(0)
-if not cap.isOpened():
-    print("Error: Could not open camera.")
-    exit()
-
 VOICE_WINDOW_NAME = "Robot Voice Visualizer"
 cv2.namedWindow(VOICE_WINDOW_NAME)
 voice_window_size = (300, 300)
 
-person_detected_time = None
-
-# Create the recognizer and run the main loop
 with vision.GestureRecognizer.create_from_options(options) as recognizer:
     while cap.isOpened():
         success, frame = cap.read()
-        if not success:
-            print("Ignoring empty camera frame.")
-            continue
+        if not success: continue
 
-        # --- Voice Visualizer Logic ---
+        if time.time() - last_person_seen_time > PERSON_RESET_TIMEOUT and STATE != "WAITING_FOR_PERSON":
+            reset_game_state()
+
         visualizer_frame = np.zeros((voice_window_size[1], voice_window_size[0], 3), dtype=np.uint8)
         if pygame.mixer.get_busy():
             pulse = (math.sin(time.time() * 10) + 1) / 2
             center = (voice_window_size[0] // 2, voice_window_size[1] // 2)
             max_radius = int(voice_window_size[0] * 0.4)
             for i in range(3):
-                radius = int(max_radius * (pulse + i * 0.3) % max_radius)
+                radius = int((max_radius * (pulse + i * 0.3)) % max_radius)
                 color = (150 + i * 30, 0, 150 - i * 30)
                 cv2.circle(visualizer_frame, center, radius, color, 2)
 
@@ -136,80 +241,100 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
         frame_height, frame_width, _ = frame.shape
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
-        
-        # --- Asynchronous Gesture Recognition ---
-        timestamp_ms = int(time.time() * 1000)
-        recognizer.recognize_async(mp_image, timestamp_ms)
-
-        # Make frame writeable for drawing
+        recognizer.recognize_async(mp_image, int(time.time() * 1000))
         frame.flags.writeable = True
 
-        # --- State: WAITING_FOR_PERSON / PERSON_DETECTED ---
-        if STATE == "WAITING_FOR_PERSON" or STATE == "PERSON_DETECTED":
-            yolo_results = yolo_model(rgb_frame, classes=[0], verbose=False)
-            person_in_frame = False
-            for detection in yolo_results[0].boxes:
-                if detection.conf.item() > PERSON_CONFIDENCE_THRESHOLD:
-                    box = detection.xyxy[0].cpu().numpy().astype(int)
-                    x1, y1, x2, y2 = box
-                    if (x2 - x1) > frame_width * 0.2 and (y2 - y1) > frame_height * 0.4:
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                        person_in_frame = True
-                        if STATE == "WAITING_FOR_PERSON":
-                            STATE = "PERSON_DETECTED"
-                            person_detected_time = time.time()
-                        if time.time() - (person_detected_time or 0) > PERSON_PRESENCE_TIME_THRESHOLD:
-                            STATE = "GREETING"
-                            greeting_sound.play()
-                        break
-            if not person_in_frame:
-                STATE = "WAITING_FOR_PERSON"
-                person_detected_time = None
-
-        # --- State: GREETING (Waiting for Thumbs Up) ---
-        elif STATE == "GREETING":
-            if not pygame.mixer.get_busy():
-                cv2.putText(frame, "Show me a THUMBS UP!", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
-        # --- State: EXPLAINING (Waiting for Peace Sign) ---
-        elif STATE == "EXPLAINING":
-            if not pygame.mixer.get_busy():
-                cv2.putText(frame, "Show me a PEACE sign!", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
-
-        # --- State: SHOWING_QR ---
-        elif STATE == "SHOWING_QR":
-            qr_h, qr_w, _ = qr_img_cv.shape
-            frame[10:10+qr_h, frame_width-qr_w-10:frame_width-10] = qr_img_cv
-            cv2.putText(frame, "Scan for our website!", (frame_width - 250, 230), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-            if 'qr_start_time' not in locals(): qr_start_time = time.time()
-            if time.time() - qr_start_time > 15:
-                STATE = "WAITING_FOR_PERSON"
-                del qr_start_time
+        person_in_frame = False
+        yolo_results = yolo_model(rgb_frame, classes=[0], verbose=False, max_det=1)
+        if any(d.conf.item() > PERSON_CONFIDENCE_THRESHOLD for d in yolo_results[0].boxes):
+            person_in_frame = True
+            last_person_seen_time = time.time()
         
-        # --- Draw Hand Landmarks on Frame ---
+        if STATE in ["WAITING_FOR_PERSON", "PERSON_DETECTED"]:
+            if person_in_frame:
+                if STATE == "WAITING_FOR_PERSON":
+                    STATE = "PERSON_DETECTED"
+                    person_detected_time = time.time()
+                if time.time() - (person_detected_time or 0) > PERSON_PRESENCE_TIME_THRESHOLD:
+                    STATE = "GREETING"
+                    play_audio_by_name("greeting")
+            elif STATE == "PERSON_DETECTED":
+                STATE = "WAITING_FOR_PERSON"
+        
+        if STATE == "GREETING" and not pygame.mixer.get_busy():
+            cv2.putText(frame, "Show me a THUMBS UP!", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        elif STATE == "EXPLAINING" and not pygame.mixer.get_busy():
+            STATE = "AWAITING_QUIZ_CHOICE"
+            play_audio_by_name("game_request")
+        elif STATE == "AWAITING_QUIZ_CHOICE" and not pygame.mixer.get_busy():
+            cv2.putText(frame, "Quiz? Thumbs UP (Yes) or DOWN (No)", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 255), 2)
+        elif STATE == "AWAITING_FEEDBACK_END" and not pygame.mixer.get_busy():
+            STATE = "PROMPT_FOR_QR"
+            play_audio_by_name("qr_prompt_after_quiz")
+        elif STATE == "PROMPT_FOR_QR" and not pygame.mixer.get_busy():
+            cv2.putText(frame, "Show me a PEACE sign for the QR Code!", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 255), 2)
+        elif STATE == "SHOWING_QR":
+            frame[10:210, frame_width-210:frame_width-10] = qr_img_cv
+            if 'qr_start_time' not in locals(): qr_start_time = time.time()
+            if time.time() - qr_start_time > 8 and not pygame.mixer.get_busy():
+                play_audio_by_name("goodbye")
+                time.sleep(2) # Let goodbye message play
+                reset_game_state()
+                del qr_start_time
+        elif STATE == "QUIZ_MODE":
+            if current_question and not pygame.mixer.get_busy():
+                cv2.putText(frame, current_question['question'], (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 2)
+                option_boxes = []
+                for i, option in enumerate(current_question['options']):
+                    y_pos = 100 + i * 60; box = (50, y_pos, 550, y_pos + 50); option_boxes.append(box)
+                    color = (0, 255, 0) if hovered_option == i else (255, 100, 0)
+                    cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), color, 2)
+                    cv2.putText(frame, f"{i+1}. {option}", (60, y_pos + 35), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
+                
+                currently_pointing_at = -1
+                if latest_gesture_result and latest_gesture_result.hand_landmarks:
+                    index_tip = latest_gesture_result.hand_landmarks[0][mp_hands.HandLandmark.INDEX_FINGER_TIP]
+                    px, py = int(index_tip.x * frame_width), int(index_tip.y * frame_height)
+                    
+                    for i, box in enumerate(option_boxes):
+                        if box[0] < px < box[2] and box[1] < py < box[3]:
+                            currently_pointing_at = i
+                            break
+                    
+                    if currently_pointing_at != hovered_option:
+                        hovered_option = currently_pointing_at
+                        hover_start_time = time.time() if currently_pointing_at != -1 else None
+                    
+                    if hover_start_time and hovered_option != -1:
+                        elapsed_time = time.time() - hover_start_time
+                        progress = elapsed_time / SELECTION_LOCK_DURATION
+                        
+                        cv2.ellipse(frame, (px, py), (20, 20), 270, 0, progress * 360, (0, 255, 255), 3)
+
+                        if elapsed_time > SELECTION_LOCK_DURATION:
+                            if hovered_option == current_question['answer']:
+                                user_is_winner = True
+                                play_audio_by_name("correct_answer")
+                            else:
+                                play_audio_by_name("wrong_answer")
+                            
+                            answered_questions.add(current_question['id'])
+                            STATE = "AWAITING_FEEDBACK_END" # New state to wait for audio
+                            hover_start_time = None
+                            hovered_option = -1
+        
         if latest_gesture_result:
             for hand_landmarks in latest_gesture_result.hand_landmarks:
                 hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
-                hand_landmarks_proto.landmark.extend([
-                    landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z) for landmark in hand_landmarks
-                ])
-                mp_drawing.draw_landmarks(
-                    frame,
-                    hand_landmarks_proto,
-                    mp_hands.HAND_CONNECTIONS,
-                    mp_drawing.DrawingSpec(color=(121, 22, 76), thickness=2, circle_radius=4),
-                    mp_drawing.DrawingSpec(color=(250, 44, 250), thickness=2, circle_radius=2),
-                )
+                hand_landmarks_proto.landmark.extend([landmark_pb2.NormalizedLandmark(x=l.x, y=l.y, z=l.z) for l in hand_landmarks])
+                mp_drawing.draw_landmarks(frame, hand_landmarks_proto, mp_hands.HAND_CONNECTIONS)
 
-        # Display the final frames
         cv2.imshow('Robot Interaction View', frame)
         cv2.imshow(VOICE_WINDOW_NAME, visualizer_frame)
-
-        if cv2.waitKey(5) & 0xFF == 27:
-            break
+        if cv2.waitKey(5) & 0xFF == 27: break
 
 # --- CLEANUP ---
-print("Cleaning up and closing.")
+print("Cleaning up...")
 cap.release()
 cv2.destroyAllWindows()
 pygame.mixer.quit()
