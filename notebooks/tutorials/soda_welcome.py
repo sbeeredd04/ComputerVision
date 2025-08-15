@@ -114,6 +114,10 @@ hover_start_time = None
 SELECTION_LOCK_DURATION = 3.0 # 3 seconds to lock answer by pointing
 user_is_winner = False
 
+# Subtitle variables
+SUBTITLES = {}
+current_subtitle = ""
+
 # --- Load Quiz Questions ---
 try:
     with open('questions.json', 'r') as f:
@@ -130,27 +134,39 @@ except Exception as e:
 
 # --- HELPER & GAME FUNCTIONS ---
 def pregenerate_static_audio():
-    """Generates all necessary static audio files at startup."""
+    """Generates all necessary static audio files at startup and populates the subtitle dictionary."""
     print("Pre-generating static audio files if they don't exist...")
-    tts.generate_speech("Hey there! Nice to meet you! Give me a thumbs up to learn about SoDA!", "cheerfully", "greeting")
-    tts.generate_speech("SoDA is the Software Development Association! We build cool projects and learn together.", "enthusiastically", "about_soda")
-    tts.generate_speech("Would you like to answer a question for a potential prize? Show thumbs up for yes, or thumbs down for no.", "playfully", "game_request")
-    tts.generate_speech("No problem! Show me a peace sign to get our QR code instead.", "calmly", "skip_quiz_prompt")
-    tts.generate_speech("Awesome! Here's how to join us!", "happily", "qr_show")
-    tts.generate_speech("Correct! You win! You can collect your prize later.", "excitedly", "correct_answer")
-    tts.generate_speech("Aww, that's not right. Better luck next time.", "gently", "wrong_answer")
-    tts.generate_speech("Show me a peace sign if you'd like to know more about us.", "invitingly", "qr_prompt_after_quiz")
-    tts.generate_speech("Thanks for playing! Goodbye!", "friendly", "goodbye")
+    
+    audio_map = {
+        "greeting": ("Hey there! Nice to meet you! Give me a thumbs up to learn about SoDA!", "cheerfully"),
+        "about_soda": ("SoDA is the Software Development Association! We build cool projects and learn together.", "enthusiastically"),
+        "game_request": ("Would you like to answer a question for a potential prize? Show thumbs up for yes, or thumbs down for no.", "playfully"),
+        "skip_quiz_prompt": ("No problem! Show me a peace sign to get our QR code instead.", "calmly"),
+        "qr_show": ("Awesome! Here's how to join us!", "happily"),
+        "correct_answer": ("Correct! You win! You can collect your prize later.", "excitedly"),
+        "wrong_answer": ("Aww, that's not right. Better luck next time.", "gently"),
+        "qr_prompt_after_quiz": ("Show me a peace sign if you'd like to know more about us.", "invitingly"),
+        "goodbye": ("Thanks for playing! Goodbye!", "friendly")
+    }
+
+    for name, (text, style) in audio_map.items():
+        tts.generate_speech(text, style, name)
+        SUBTITLES[name] = text # Store text for subtitles
+    
     print("Static audio ready.")
 
 def play_audio_by_name(filename):
+    global current_subtitle
     filepath = os.path.join(tts.audio_dir, f"{filename}.wav")
     if os.path.exists(filepath):
         pygame.mixer.Sound(filepath).play()
+        current_subtitle = SUBTITLES.get(filename, "")
     else:
         print(f"ERROR: Audio file not found: {filepath}")
 
 def play_dynamic_audio(text, style=""):
+    # Dynamic audio (like questions) won't have subtitles for now to keep the screen clean.
+    # This could be changed by setting current_subtitle here if desired.
     filepath = tts.generate_speech(text, style)
     if filepath:
         pygame.mixer.Sound(filepath).play()
@@ -165,7 +181,7 @@ def get_new_question():
     current_question = random.choice(available_q)
 
 def reset_game_state():
-    global STATE, current_question, answered_questions, skip_available, user_is_winner, hovered_option, hover_start_time, person_detected_time
+    global STATE, current_question, answered_questions, skip_available, user_is_winner, hovered_option, hover_start_time, person_detected_time, current_subtitle
     print("Resetting game state...")
     STATE = "WAITING_FOR_PERSON"
     current_question = None
@@ -175,7 +191,27 @@ def reset_game_state():
     hovered_option = -1
     hover_start_time = None
     person_detected_time = None
+    current_subtitle = ""
     pygame.mixer.stop()
+
+def draw_subtitles(frame, text):
+    """Draws text with a background at the bottom of the frame."""
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.7
+    thickness = 2
+    text_color = (255, 255, 255)
+    bg_color = (0, 0, 0)
+    
+    (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
+    
+    # Position at the bottom center
+    x = (frame.shape[1] - text_width) // 2
+    y = frame.shape[0] - 30
+    
+    # Draw background rectangle
+    cv2.rectangle(frame, (x - 10, y - text_height - 10), (x + text_width + 10, y + baseline), bg_color, -1)
+    # Draw text
+    cv2.putText(frame, text, (x, y), font, font_scale, text_color, thickness)
 
 def process_gesture_result(result: vision.GestureRecognizerResult, output_image: mp.Image, timestamp_ms: int):
     global latest_gesture_result, STATE
@@ -323,6 +359,12 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                             hover_start_time = None
                             hovered_option = -1
         
+        # Draw subtitles if audio is playing
+        if pygame.mixer.get_busy() and current_subtitle:
+            draw_subtitles(frame, current_subtitle)
+        else:
+            current_subtitle = ""
+
         if latest_gesture_result:
             for hand_landmarks in latest_gesture_result.hand_landmarks:
                 hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
