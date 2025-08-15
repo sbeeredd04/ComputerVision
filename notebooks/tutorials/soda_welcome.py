@@ -165,8 +165,6 @@ def play_audio_by_name(filename):
         print(f"ERROR: Audio file not found: {filepath}")
 
 def play_dynamic_audio(text, style=""):
-    # Dynamic audio (like questions) won't have subtitles for now to keep the screen clean.
-    # This could be changed by setting current_subtitle here if desired.
     filepath = tts.generate_speech(text, style)
     if filepath:
         pygame.mixer.Sound(filepath).play()
@@ -200,18 +198,50 @@ def draw_subtitles(frame, text):
     font_scale = 0.7
     thickness = 2
     text_color = (255, 255, 255)
-    bg_color = (0, 0, 0)
     
     (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
-    
-    # Position at the bottom center
     x = (frame.shape[1] - text_width) // 2
     y = frame.shape[0] - 30
     
-    # Draw background rectangle
-    cv2.rectangle(frame, (x - 10, y - text_height - 10), (x + text_width + 10, y + baseline), bg_color, -1)
-    # Draw text
+    # Create a black rectangle for the background
+    sub_img = frame.copy()
+    cv2.rectangle(sub_img, (x - 10, y - text_height - 10), (x + text_width + 10, y + baseline), (0,0,0), -1)
+    # Blend the rectangle with the frame for a semi-transparent effect
+    cv2.addWeighted(sub_img, 0.5, frame, 0.5, 0, frame)
+    
     cv2.putText(frame, text, (x, y), font, font_scale, text_color, thickness)
+
+def draw_speaking_orb(frame):
+    """Draws a multi-layered, pulsing orb at the bottom-left of the frame."""
+    h, w, _ = frame.shape
+    # Position the orb in the bottom-left corner
+    center = (int(w * 0.1), int(h * 0.9))
+    t = time.time()
+    
+    base_pulse = (math.sin(t * 5) + 1) / 2 * 0.5 + 0.5
+    max_radius = int(min(h, w) * 0.08) # Smaller radius for corner placement
+
+    # Create a copy of the frame to draw the orb on for blending
+    orb_overlay = frame.copy()
+
+    # Layer 1: Outer glow
+    radius1 = int(max_radius * base_pulse)
+    color1 = (255, 100, 100) # Light Blue
+    cv2.circle(orb_overlay, center, radius1, color1, -1)
+
+    # Layer 2: Inner core
+    radius2 = int(radius1 * (0.7 + (math.sin(t * 7) + 1) / 2 * 0.2))
+    color2 = (255, 180, 180) # Lighter Blue
+    cv2.circle(orb_overlay, center, radius2, color2, -1)
+
+    # Layer 3: Pulsing highlight
+    radius3 = int(radius2 * 0.5)
+    color3 = (255, 255, 255) # White
+    cv2.circle(orb_overlay, center, radius3, color3, -1)
+    
+    # Blend the orb overlay with the main frame
+    cv2.addWeighted(orb_overlay, 0.7, frame, 0.3, 0, frame)
+
 
 def process_gesture_result(result: vision.GestureRecognizerResult, output_image: mp.Image, timestamp_ms: int):
     global latest_gesture_result, STATE
@@ -251,9 +281,6 @@ options = vision.GestureRecognizerOptions(base_options=base_options, running_mod
 
 print("Starting camera feed...")
 cap = cv2.VideoCapture(0)
-VOICE_WINDOW_NAME = "Robot Voice Visualizer"
-cv2.namedWindow(VOICE_WINDOW_NAME)
-voice_window_size = (300, 300)
 
 with vision.GestureRecognizer.create_from_options(options) as recognizer:
     while cap.isOpened():
@@ -262,16 +289,6 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
 
         if time.time() - last_person_seen_time > PERSON_RESET_TIMEOUT and STATE != "WAITING_FOR_PERSON":
             reset_game_state()
-
-        visualizer_frame = np.zeros((voice_window_size[1], voice_window_size[0], 3), dtype=np.uint8)
-        if pygame.mixer.get_busy():
-            pulse = (math.sin(time.time() * 10) + 1) / 2
-            center = (voice_window_size[0] // 2, voice_window_size[1] // 2)
-            max_radius = int(voice_window_size[0] * 0.4)
-            for i in range(3):
-                radius = int((max_radius * (pulse + i * 0.3)) % max_radius)
-                color = (150 + i * 30, 0, 150 - i * 30)
-                cv2.circle(visualizer_frame, center, radius, color, 2)
 
         frame = cv2.flip(frame, 1)
         frame_height, frame_width, _ = frame.shape
@@ -359,7 +376,11 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                             hover_start_time = None
                             hovered_option = -1
         
-        # Draw subtitles if audio is playing
+        # Draw orb first, so it's the bottom layer
+        if pygame.mixer.get_busy():
+            draw_speaking_orb(frame)
+        
+        # Draw subtitles on top of the orb and video
         if pygame.mixer.get_busy() and current_subtitle:
             draw_subtitles(frame, current_subtitle)
         else:
@@ -372,7 +393,6 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                 mp_drawing.draw_landmarks(frame, hand_landmarks_proto, mp_hands.HAND_CONNECTIONS)
 
         cv2.imshow('Robot Interaction View', frame)
-        cv2.imshow(VOICE_WINDOW_NAME, visualizer_frame)
         if cv2.waitKey(5) & 0xFF == 27: break
 
 # --- CLEANUP ---
