@@ -16,10 +16,19 @@ import random
 import wave
 import hashlib
 
+# --- Dependency for SVG rendering ---
+try:
+    from svglib.svglib import svg2rlg
+    from reportlab.graphics import renderPM
+    SVG_SUPPORT = True
+except ImportError:
+    SVG_SUPPORT = False
+    print("WARNING: svglib or reportlab is not installed. The SVG logo will not be displayed. Please run 'pip install svglib reportlab Pillow'")
+
+
 # --- TTS Class for On-the-Fly Audio Generation ---
 # NOTE: You must set the 'GEMINI_API_KEY' environment variable for this to work.
 try:
-    # Corrected import based on the new library structure
     from google import genai
     from google.genai import types
     IMPORT_SUCCESS = True
@@ -35,13 +44,10 @@ class RobotTTS:
         if not api_key:
             raise ValueError("GEMINI_API_KEY environment variable not set")
         
-        # The client is used for the TTS model
         self.client = genai.Client(api_key=api_key)
-        
         self.audio_dir = "robot_audio"
         os.makedirs(self.audio_dir, exist_ok=True)
-        
-        self.voice_name = 'Puck' # Default voice
+        self.voice_name = 'Puck'
 
     def _get_audio_filename(self, text_or_name):
         if ' ' in text_or_name:
@@ -69,8 +75,6 @@ class RobotTTS:
         try:
             print(f"Generating new audio for: {filename_override or text[:20]}...")
             prompt = f"Say {style}: {text}" if style else text
-            
-            # --- CORRECTED API CALL FOR TTS based on new documentation ---
             response = self.client.models.generate_content(
                 model="gemini-2.5-flash-preview-tts",
                 contents=prompt,
@@ -93,32 +97,29 @@ class RobotTTS:
         return None
 
 # --- INITIALIZATION ---
-
-# 1. State Machine and Global Variables
-STATE = "WAITING_FOR_PERSON"
+STATE = "SCREENSAVER"
 PERSON_CONFIDENCE_THRESHOLD = 0.6
-PERSON_PRESENCE_TIME_THRESHOLD = 1.0
+PERSON_PRESENCE_TIME_THRESHOLD = 2.0 # Increased slightly to prevent accidental triggers
 YOUR_CLUB_WEBSITE_URL = "https://www.yourclubwebsite.com"
 latest_gesture_result = None
 MODEL_PATH = "gesture_recognizer.task"
-last_person_seen_time = time.time()
-PERSON_RESET_TIMEOUT = 2.0 # seconds
-
-# Quiz game variables
+last_person_seen_time = 0
+PERSON_RESET_TIMEOUT = 5.0
+screen_saver_message = "Step Up to Play!"
+LOGO_SVG_PATH = "soda.svg"
+logo_img = None
+person_detected_time = None # Initialize here
 quiz_questions = []
 current_question = None
 answered_questions = set()
 skip_available = True
 hovered_option = -1
 hover_start_time = None
-SELECTION_LOCK_DURATION = 3.0 # 3 seconds to lock answer by pointing
+SELECTION_LOCK_DURATION = 3.0
 user_is_winner = False
-
-# Subtitle variables
 SUBTITLES = {}
 current_subtitle = ""
 
-# --- Load Quiz Questions ---
 try:
     with open('questions.json', 'r') as f:
         quiz_questions = json.load(f)['questions']
@@ -126,17 +127,48 @@ try:
 except Exception as e:
     print(f"Error loading questions.json: {e}"); exit()
 
-# 2. Initialize TTS
 try:
     tts = RobotTTS()
 except Exception as e:
     print(f"Failed to initialize TTS: {e}"); exit()
 
 # --- HELPER & GAME FUNCTIONS ---
+
+def load_logo(target_width):
+    """Loads SVG, renders it to a PIL Image, and converts to an OpenCV-compatible format."""
+    if not SVG_SUPPORT or not os.path.exists(LOGO_SVG_PATH):
+        print(f"DEBUG: Logo not loaded. SVG support: {SVG_SUPPORT}, Path exists: {os.path.exists(LOGO_SVG_PATH)}")
+        return None
+    try:
+        print("DEBUG: Attempting to load and render SVG...")
+        drawing = svg2rlg(LOGO_SVG_PATH)
+        if drawing.width == 0: return None # Handle empty SVG
+        
+        scale_factor = target_width / drawing.width
+        drawing.width *= scale_factor
+        drawing.height *= scale_factor
+        drawing.scale(scale_factor, scale_factor)
+        
+        # This is the most compatible way to render, using the Pillow backend
+        pil_image = renderPM.drawToPIL(drawing, bg=(255, 255, 255, 0)) # Transparent BG
+        
+        print("DEBUG: SVG successfully rendered to PIL Image.")
+        return cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGBA2BGRA)
+    except Exception as e:
+        print(f"CRITICAL ERROR loading or converting SVG logo: {e}")
+        return None
+
+def overlay_transparent_image(background, overlay, x, y):
+    """Overlays a BGRA image with transparency onto a BGR background."""
+    h, w, _ = overlay.shape
+    alpha = overlay[:, :, 3] / 255.0
+    overlay_rgb = overlay[:, :, :3]
+    for c in range(0, 3):
+        background[y:y+h, x:x+w, c] = (alpha * overlay_rgb[:, :, c] +
+                                       (1 - alpha) * background[y:y+h, x:x+w, c])
+
 def pregenerate_static_audio():
-    """Generates all necessary static audio files at startup and populates the subtitle dictionary."""
     print("Pre-generating static audio files if they don't exist...")
-    
     audio_map = {
         "greeting": ("Hey there! Nice to meet you! Give me a thumbs up to learn about SoDA!", "cheerfully"),
         "about_soda": ("SoDA is the Software Development Association! We build cool projects and learn together.", "enthusiastically"),
@@ -148,11 +180,9 @@ def pregenerate_static_audio():
         "qr_prompt_after_quiz": ("Show me a peace sign if you'd like to know more about us.", "invitingly"),
         "goodbye": ("Thanks for playing! Goodbye!", "friendly")
     }
-
     for name, (text, style) in audio_map.items():
         tts.generate_speech(text, style, name)
-        SUBTITLES[name] = text # Store text for subtitles
-    
+        SUBTITLES[name] = text
     print("Static audio ready.")
 
 def play_audio_by_name(filename):
@@ -180,8 +210,8 @@ def get_new_question():
 
 def reset_game_state():
     global STATE, current_question, answered_questions, skip_available, user_is_winner, hovered_option, hover_start_time, person_detected_time, current_subtitle
-    print("Resetting game state...")
-    STATE = "WAITING_FOR_PERSON"
+    print("DEBUG: Resetting game state to screensaver...")
+    STATE = "SCREENSAVER"
     current_question = None
     answered_questions = set()
     skip_available = True
@@ -193,63 +223,37 @@ def reset_game_state():
     pygame.mixer.stop()
 
 def draw_subtitles(frame, text):
-    """Draws text with a background at the bottom of the frame."""
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 0.7
     thickness = 2
-    text_color = (255, 255, 255)
-    
     (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
     x = (frame.shape[1] - text_width) // 2
     y = frame.shape[0] - 30
-    
-    # Create a black rectangle for the background
     sub_img = frame.copy()
     cv2.rectangle(sub_img, (x - 10, y - text_height - 10), (x + text_width + 10, y + baseline), (0,0,0), -1)
-    # Blend the rectangle with the frame for a semi-transparent effect
     cv2.addWeighted(sub_img, 0.5, frame, 0.5, 0, frame)
-    
-    cv2.putText(frame, text, (x, y), font, font_scale, text_color, thickness)
+    cv2.putText(frame, text, (x, y), font, font_scale, (255, 255, 255), thickness)
 
 def draw_speaking_orb(frame):
-    """Draws a multi-layered, pulsing orb at the bottom-left of the frame."""
     h, w, _ = frame.shape
-    # Position the orb in the bottom-left corner
     center = (int(w * 0.1), int(h * 0.9))
     t = time.time()
-    
     base_pulse = (math.sin(t * 5) + 1) / 2 * 0.5 + 0.5
-    max_radius = int(min(h, w) * 0.08) # Smaller radius for corner placement
-
-    # Create a copy of the frame to draw the orb on for blending
+    max_radius = int(min(h, w) * 0.08)
     orb_overlay = frame.copy()
-
-    # Layer 1: Outer glow
     radius1 = int(max_radius * base_pulse)
-    color1 = (255, 100, 100) # Light Blue
-    cv2.circle(orb_overlay, center, radius1, color1, -1)
-
-    # Layer 2: Inner core
+    cv2.circle(orb_overlay, center, radius1, (255, 100, 100), -1)
     radius2 = int(radius1 * (0.7 + (math.sin(t * 7) + 1) / 2 * 0.2))
-    color2 = (255, 180, 180) # Lighter Blue
-    cv2.circle(orb_overlay, center, radius2, color2, -1)
-
-    # Layer 3: Pulsing highlight
+    cv2.circle(orb_overlay, center, radius2, (255, 180, 180), -1)
     radius3 = int(radius2 * 0.5)
-    color3 = (255, 255, 255) # White
-    cv2.circle(orb_overlay, center, radius3, color3, -1)
-    
-    # Blend the orb overlay with the main frame
+    cv2.circle(orb_overlay, center, radius3, (255, 255, 255), -1)
     cv2.addWeighted(orb_overlay, 0.7, frame, 0.3, 0, frame)
-
 
 def process_gesture_result(result: vision.GestureRecognizerResult, output_image: mp.Image, timestamp_ms: int):
     global latest_gesture_result, STATE
     latest_gesture_result = result
     if pygame.mixer.get_busy() or not result.gestures: return
-
     gesture_name = result.gestures[0][0].category_name
-    
     if STATE == "GREETING" and gesture_name == "Thumb_Up":
         STATE = "EXPLAINING"
         play_audio_by_name("about_soda")
@@ -275,45 +279,92 @@ qr_code_obj.add_data(YOUR_CLUB_WEBSITE_URL)
 qr_code_obj.make(fit=True)
 qr_img_pil = qr_code_obj.make_image(fill_color="black", back_color="white").convert('RGB').resize((200, 200))
 qr_img_cv = cv2.cvtColor(np.array(qr_img_pil), cv2.COLOR_RGB2BGR)
-
 base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
 options = vision.GestureRecognizerOptions(base_options=base_options, running_mode=vision.RunningMode.LIVE_STREAM, num_hands=2, result_callback=process_gesture_result)
 
 print("Starting camera feed...")
 cap = cv2.VideoCapture(0)
+success, temp_frame = cap.read()
+if not success:
+    print("Could not read from camera. Exiting.")
+    exit()
+frame_height, frame_width, _ = temp_frame.shape
+logo_img = load_logo(target_width=int(frame_width * 0.4))
 
 with vision.GestureRecognizer.create_from_options(options) as recognizer:
     while cap.isOpened():
+        # --- SCREENSAVER LOGIC ---
+        if STATE == "SCREENSAVER" or STATE == "PERSON_DETECTED":
+            frame = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
+            if logo_img is not None:
+                logo_h, logo_w, _ = logo_img.shape
+                x_pos = (frame_width - logo_w) // 2
+                y_pos = (frame_height - logo_h) // 3
+                overlay_transparent_image(frame, logo_img, x_pos, y_pos)
+            
+            font = cv2.FONT_HERSHEY_TRIPLEX
+            (text_w, text_h), _ = cv2.getTextSize(screen_saver_message, font, 1.5, 3)
+            cv2.putText(frame, screen_saver_message, ((frame_width - text_w) // 2, frame_height - 150), font, 1.5, (255, 255, 255), 3)
+
+            success, real_frame = cap.read()
+            if not success: continue
+            
+            person_found = False
+            yolo_results = yolo_model(real_frame, classes=[0], verbose=False, max_det=1)
+            if any(d.conf.item() > PERSON_CONFIDENCE_THRESHOLD for d in yolo_results[0].boxes):
+                person_found = True
+                if STATE == "SCREENSAVER":
+                    STATE = "PERSON_DETECTED"
+                    person_detected_time = time.time()
+                    print(f"DEBUG: Person detected! Starting {PERSON_PRESENCE_TIME_THRESHOLD}s timer.")
+                
+                elapsed_time = time.time() - (person_detected_time or 0)
+                # On-screen timer for debugging
+                timer_text = f"Starting in {PERSON_PRESENCE_TIME_THRESHOLD - elapsed_time:.1f}s"
+                cv2.putText(frame, timer_text, (50, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
+                if elapsed_time > PERSON_PRESENCE_TIME_THRESHOLD:
+                    print("DEBUG: Timer finished. Switching to GREETING state.")
+                    STATE = "GREETING"
+                    # --- BUG FIX: Initialize last_person_seen_time here! ---
+                    # This prevents the immediate timeout in the interactive loop.
+                    last_person_seen_time = time.time()
+                    play_audio_by_name("greeting")
+            
+            elif STATE == "PERSON_DETECTED":
+                 print("DEBUG: Person lost. Returning to screensaver.")
+                 STATE = "SCREENSAVER"
+                 person_detected_time = None
+            
+            # --- On-screen debug text for screensaver mode ---
+            cv2.putText(frame, f"STATE: {STATE}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+            cv2.putText(frame, f"Person Detected: {person_found}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+
+            cv2.imshow('Robot Interaction View', frame)
+            if cv2.waitKey(5) & 0xFF == 27: break
+            continue
+
+        # --- INTERACTIVE MODE LOGIC ---
+        if time.time() - last_person_seen_time > PERSON_RESET_TIMEOUT:
+            reset_game_state()
+            continue
+
         success, frame = cap.read()
         if not success: continue
 
-        if time.time() - last_person_seen_time > PERSON_RESET_TIMEOUT and STATE != "WAITING_FOR_PERSON":
-            reset_game_state()
-
         frame = cv2.flip(frame, 1)
-        frame_height, frame_width, _ = frame.shape
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
         recognizer.recognize_async(mp_image, int(time.time() * 1000))
         frame.flags.writeable = True
 
-        person_in_frame = False
+        person_found_interactive = False
         yolo_results = yolo_model(rgb_frame, classes=[0], verbose=False, max_det=1)
         if any(d.conf.item() > PERSON_CONFIDENCE_THRESHOLD for d in yolo_results[0].boxes):
-            person_in_frame = True
             last_person_seen_time = time.time()
+            person_found_interactive = True
         
-        if STATE in ["WAITING_FOR_PERSON", "PERSON_DETECTED"]:
-            if person_in_frame:
-                if STATE == "WAITING_FOR_PERSON":
-                    STATE = "PERSON_DETECTED"
-                    person_detected_time = time.time()
-                if time.time() - (person_detected_time or 0) > PERSON_PRESENCE_TIME_THRESHOLD:
-                    STATE = "GREETING"
-                    play_audio_by_name("greeting")
-            elif STATE == "PERSON_DETECTED":
-                STATE = "WAITING_FOR_PERSON"
-        
+        # --- State Machine for Interaction ---
         if STATE == "GREETING" and not pygame.mixer.get_busy():
             cv2.putText(frame, "Show me a THUMBS UP!", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         elif STATE == "EXPLAINING" and not pygame.mixer.get_busy():
@@ -331,11 +382,12 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
             if 'qr_start_time' not in locals(): qr_start_time = time.time()
             if time.time() - qr_start_time > 8 and not pygame.mixer.get_busy():
                 play_audio_by_name("goodbye")
-                time.sleep(2) # Let goodbye message play
+                time.sleep(2) 
                 reset_game_state()
                 del qr_start_time
         elif STATE == "QUIZ_MODE":
             if current_question and not pygame.mixer.get_busy():
+                # Quiz UI Logic (unchanged)
                 cv2.putText(frame, current_question['question'], (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 2)
                 option_boxes = []
                 for i, option in enumerate(current_question['options']):
@@ -361,7 +413,6 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                     if hover_start_time and hovered_option != -1:
                         elapsed_time = time.time() - hover_start_time
                         progress = elapsed_time / SELECTION_LOCK_DURATION
-                        
                         cv2.ellipse(frame, (px, py), (20, 20), 270, 0, progress * 360, (0, 255, 255), 3)
 
                         if elapsed_time > SELECTION_LOCK_DURATION:
@@ -372,15 +423,14 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                                 play_audio_by_name("wrong_answer")
                             
                             answered_questions.add(current_question['id'])
-                            STATE = "AWAITING_FEEDBACK_END" # New state to wait for audio
+                            STATE = "AWAITING_FEEDBACK_END"
                             hover_start_time = None
                             hovered_option = -1
         
-        # Draw orb first, so it's the bottom layer
+        # --- Drawing Overlays ---
         if pygame.mixer.get_busy():
             draw_speaking_orb(frame)
         
-        # Draw subtitles on top of the orb and video
         if pygame.mixer.get_busy() and current_subtitle:
             draw_subtitles(frame, current_subtitle)
         else:
@@ -391,6 +441,11 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                 hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
                 hand_landmarks_proto.landmark.extend([landmark_pb2.NormalizedLandmark(x=l.x, y=l.y, z=l.z) for l in hand_landmarks])
                 mp_drawing.draw_landmarks(frame, hand_landmarks_proto, mp_hands.HAND_CONNECTIONS)
+        
+        # --- On-screen debug text for interactive mode ---
+        cv2.putText(frame, f"STATE: {STATE}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+        cv2.putText(frame, f"Person Visible: {person_found_interactive}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+
 
         cv2.imshow('Robot Interaction View', frame)
         if cv2.waitKey(5) & 0xFF == 27: break
