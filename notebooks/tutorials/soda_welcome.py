@@ -15,6 +15,30 @@ import json
 import random
 import wave
 import hashlib
+import torch
+
+# --- CUDA Device Detection ---
+def detect_device():
+    """Detect and return the best available device (CUDA or CPU)"""
+    if torch.cuda.is_available():
+        device = 'cuda'
+        print(f"CUDA is available! Using GPU: {torch.cuda.get_device_name(0)}")
+        print(f"CUDA version: {torch.version.cuda}")
+        print(f"PyTorch CUDA version: {torch.version.cuda}")
+        print(f"GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
+    else:
+        device = 'cpu'
+        print("CUDA not available. Using CPU.")
+    return device
+
+def print_performance_info():
+    """Print performance information"""
+    if DEVICE == 'cuda':
+        print(f"GPU Memory Allocated: {torch.cuda.memory_allocated() / 1024**2:.1f} MB")
+        print(f"GPU Memory Cached: {torch.cuda.memory_reserved() / 1024**2:.1f} MB")
+
+# Initialize device
+DEVICE = detect_device()
 
 # --- Dependency for SVG rendering ---
 try:
@@ -271,6 +295,9 @@ def process_gesture_result(result: vision.GestureRecognizerResult, output_image:
 # --- MAIN APPLICATION SETUP ---
 pregenerate_static_audio()
 yolo_model = YOLO("yolov8n.pt")
+# Move YOLO model to the detected device (CUDA if available)
+yolo_model.to(DEVICE)
+print(f"YOLO model loaded on device: {DEVICE}")
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
 pygame.mixer.init()
@@ -279,10 +306,25 @@ qr_code_obj.add_data(YOUR_CLUB_WEBSITE_URL)
 qr_code_obj.make(fit=True)
 qr_img_pil = qr_code_obj.make_image(fill_color="black", back_color="white").convert('RGB').resize((200, 200))
 qr_img_cv = cv2.cvtColor(np.array(qr_img_pil), cv2.COLOR_RGB2BGR)
+# Configure MediaPipe base options with GPU delegation if CUDA is available
 base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
-options = vision.GestureRecognizerOptions(base_options=base_options, running_mode=vision.RunningMode.LIVE_STREAM, num_hands=2, result_callback=process_gesture_result)
+if DEVICE == 'cuda':
+    # MediaPipe will automatically use GPU acceleration when available
+    # The GPU delegate is handled internally by MediaPipe
+    print("MediaPipe will attempt to use GPU acceleration")
+else:
+    print("MediaPipe will use CPU")
+
+options = vision.GestureRecognizerOptions(
+    base_options=base_options, 
+    running_mode=vision.RunningMode.LIVE_STREAM, 
+    num_hands=2, 
+    result_callback=process_gesture_result
+)
 
 print("Starting camera feed...")
+# Print performance information after models are loaded
+print_performance_info()
 cap = cv2.VideoCapture(0)
 success, temp_frame = cap.read()
 if not success:
@@ -455,3 +497,8 @@ print("Cleaning up...")
 cap.release()
 cv2.destroyAllWindows()
 pygame.mixer.quit()
+
+# Clear CUDA cache if using GPU
+if DEVICE == 'cuda':
+    torch.cuda.empty_cache()
+    print("CUDA cache cleared.")
