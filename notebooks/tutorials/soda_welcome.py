@@ -15,30 +15,6 @@ import json
 import random
 import wave
 import hashlib
-import torch
-
-# --- CUDA Device Detection ---
-def detect_device():
-    """Detect and return the best available device (CUDA or CPU)"""
-    if torch.cuda.is_available():
-        device = 'cuda'
-        print(f"CUDA is available! Using GPU: {torch.cuda.get_device_name(0)}")
-        print(f"CUDA version: {torch.version.cuda}")
-        print(f"PyTorch CUDA version: {torch.version.cuda}")
-        print(f"GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
-    else:
-        device = 'cpu'
-        print("CUDA not available. Using CPU.")
-    return device
-
-def print_performance_info():
-    """Print performance information"""
-    if DEVICE == 'cuda':
-        print(f"GPU Memory Allocated: {torch.cuda.memory_allocated() / 1024**2:.1f} MB")
-        print(f"GPU Memory Cached: {torch.cuda.memory_reserved() / 1024**2:.1f} MB")
-
-# Initialize device
-DEVICE = detect_device()
 
 # --- Dependency for SVG rendering ---
 try:
@@ -191,6 +167,40 @@ def overlay_transparent_image(background, overlay, x, y):
         background[y:y+h, x:x+w, c] = (alpha * overlay_rgb[:, :, c] +
                                        (1 - alpha) * background[y:y+h, x:x+w, c])
 
+def create_gradient_background(frame_height, frame_width):
+    """Creates a modern gradient background."""
+    gradient = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
+    
+    # Create a diagonal gradient from dark blue to dark purple
+    for i in range(frame_height):
+        for j in range(frame_width):
+            # Normalize coordinates
+            y_norm = i / frame_height
+            x_norm = j / frame_width
+            
+            # Create diagonal gradient factor
+            gradient_factor = (y_norm + x_norm) / 2
+            
+            # Dark blue to dark purple gradient
+            blue = int(20 + gradient_factor * 40)  # 20-60
+            green = int(10 + gradient_factor * 20)  # 10-30
+            red = int(30 + gradient_factor * 50)   # 30-80
+            
+            gradient[i, j] = [blue, green, red]
+    
+    return gradient
+
+def draw_modern_text(frame, text, position, font_scale=1.0, thickness=2, color=(255, 255, 255)):
+    """Draws text with modern styling including shadow effect."""
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    
+    # Draw shadow first (offset by 2 pixels)
+    shadow_pos = (position[0] + 2, position[1] + 2)
+    cv2.putText(frame, text, shadow_pos, font, font_scale, (0, 0, 0), thickness + 1)
+    
+    # Draw main text
+    cv2.putText(frame, text, position, font, font_scale, color, thickness, cv2.LINE_AA)
+
 def pregenerate_static_audio():
     print("Pre-generating static audio files if they don't exist...")
     audio_map = {
@@ -295,9 +305,6 @@ def process_gesture_result(result: vision.GestureRecognizerResult, output_image:
 # --- MAIN APPLICATION SETUP ---
 pregenerate_static_audio()
 yolo_model = YOLO("yolov8n.pt")
-# Move YOLO model to the detected device (CUDA if available)
-yolo_model.to(DEVICE)
-print(f"YOLO model loaded on device: {DEVICE}")
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
 pygame.mixer.init()
@@ -306,25 +313,10 @@ qr_code_obj.add_data(YOUR_CLUB_WEBSITE_URL)
 qr_code_obj.make(fit=True)
 qr_img_pil = qr_code_obj.make_image(fill_color="black", back_color="white").convert('RGB').resize((200, 200))
 qr_img_cv = cv2.cvtColor(np.array(qr_img_pil), cv2.COLOR_RGB2BGR)
-# Configure MediaPipe base options with GPU delegation if CUDA is available
 base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
-if DEVICE == 'cuda':
-    # MediaPipe will automatically use GPU acceleration when available
-    # The GPU delegate is handled internally by MediaPipe
-    print("MediaPipe will attempt to use GPU acceleration")
-else:
-    print("MediaPipe will use CPU")
-
-options = vision.GestureRecognizerOptions(
-    base_options=base_options, 
-    running_mode=vision.RunningMode.LIVE_STREAM, 
-    num_hands=2, 
-    result_callback=process_gesture_result
-)
+options = vision.GestureRecognizerOptions(base_options=base_options, running_mode=vision.RunningMode.LIVE_STREAM, num_hands=2, result_callback=process_gesture_result)
 
 print("Starting camera feed...")
-# Print performance information after models are loaded
-print_performance_info()
 cap = cv2.VideoCapture(0)
 success, temp_frame = cap.read()
 if not success:
@@ -337,16 +329,50 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
     while cap.isOpened():
         # --- SCREENSAVER LOGIC ---
         if STATE == "SCREENSAVER" or STATE == "PERSON_DETECTED":
-            frame = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
+            # Create modern gradient background
+            frame = create_gradient_background(frame_height, frame_width)
+            
+            # Add subtle animated pattern
+            t = time.time()
+            pattern_alpha = int((math.sin(t * 0.5) + 1) * 30 + 20)  # Oscillates between 20-80
+            
+            # Create subtle geometric pattern
+            pattern_overlay = frame.copy()
+            for i in range(0, frame_width, 120):
+                for j in range(0, frame_height, 120):
+                    offset_x = int(math.sin(t * 0.3 + i * 0.01) * 10)
+                    offset_y = int(math.cos(t * 0.3 + j * 0.01) * 10)
+                    cv2.circle(pattern_overlay, (i + offset_x, j + offset_y), 3, (100, 150, 200), 1)
+            
+            cv2.addWeighted(pattern_overlay, 0.3, frame, 0.7, 0, frame)
+            
+            # Display logo with modern positioning
             if logo_img is not None:
                 logo_h, logo_w, _ = logo_img.shape
                 x_pos = (frame_width - logo_w) // 2
-                y_pos = (frame_height - logo_h) // 3
+                y_pos = int(frame_height * 0.25)  # Higher up for better composition
                 overlay_transparent_image(frame, logo_img, x_pos, y_pos)
             
-            font = cv2.FONT_HERSHEY_TRIPLEX
-            (text_w, text_h), _ = cv2.getTextSize(screen_saver_message, font, 1.5, 3)
-            cv2.putText(frame, screen_saver_message, ((frame_width - text_w) // 2, frame_height - 150), font, 1.5, (255, 255, 255), 3)
+            # Modern main text styling
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 2.2
+            thickness = 3
+            (text_w, text_h), _ = cv2.getTextSize(screen_saver_message, font, font_scale, thickness)
+            text_x = (frame_width - text_w) // 2
+            text_y = int(frame_height * 0.7)
+            
+            # Draw main text with modern styling
+            draw_modern_text(frame, screen_saver_message, (text_x, text_y), font_scale, thickness, (255, 255, 255))
+            
+            # Add subtle instruction text
+            instruction_text = "Stand in front to begin"
+            instruction_font_scale = 0.8
+            instruction_thickness = 2
+            (inst_w, inst_h), _ = cv2.getTextSize(instruction_text, font, instruction_font_scale, instruction_thickness)
+            inst_x = (frame_width - inst_w) // 2
+            inst_y = text_y + 60
+            
+            draw_modern_text(frame, instruction_text, (inst_x, inst_y), instruction_font_scale, instruction_thickness, (180, 180, 180))
 
             success, real_frame = cap.read()
             if not success: continue
@@ -361,9 +387,12 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                     print(f"DEBUG: Person detected! Starting {PERSON_PRESENCE_TIME_THRESHOLD}s timer.")
                 
                 elapsed_time = time.time() - (person_detected_time or 0)
-                # On-screen timer for debugging
+                # Modern timer display
                 timer_text = f"Starting in {PERSON_PRESENCE_TIME_THRESHOLD - elapsed_time:.1f}s"
-                cv2.putText(frame, timer_text, (50, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                timer_bg = frame.copy()
+                cv2.rectangle(timer_bg, (40, 50), (350, 100), (50, 50, 50), -1)
+                cv2.addWeighted(timer_bg, 0.8, frame, 0.2, 0, frame)
+                draw_modern_text(frame, timer_text, (50, 85), 0.9, 2, (0, 255, 150))
 
                 if elapsed_time > PERSON_PRESENCE_TIME_THRESHOLD:
                     print("DEBUG: Timer finished. Switching to GREETING state.")
@@ -378,9 +407,13 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                  STATE = "SCREENSAVER"
                  person_detected_time = None
             
-            # --- On-screen debug text for screensaver mode ---
-            cv2.putText(frame, f"STATE: {STATE}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
-            cv2.putText(frame, f"Person Detected: {person_found}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+            # --- On-screen debug text for screensaver mode (modern styling) ---
+            debug_bg = frame.copy()
+            cv2.rectangle(debug_bg, (5, 5), (400, 80), (30, 30, 30), -1)
+            cv2.addWeighted(debug_bg, 0.7, frame, 0.3, 0, frame)
+            
+            draw_modern_text(frame, f"STATE: {STATE}", (15, 30), 0.6, 1, (255, 255, 100))
+            draw_modern_text(frame, f"Person Detected: {person_found}", (15, 55), 0.6, 1, (255, 255, 100))
 
             cv2.imshow('Robot Interaction View', frame)
             if cv2.waitKey(5) & 0xFF == 27: break
@@ -429,14 +462,78 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                 del qr_start_time
         elif STATE == "QUIZ_MODE":
             if current_question and not pygame.mixer.get_busy():
-                # Quiz UI Logic (unchanged)
-                cv2.putText(frame, current_question['question'], (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 2)
+                # CENTERED QUIZ UI - Modern and clean layout
+                
+                # Question text - centered at top
+                question_text = current_question['question']
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                question_font_scale = 1.0
+                question_thickness = 2
+                
+                # Split question into multiple lines if too long
+                max_chars_per_line = 60
+                question_lines = []
+                words = question_text.split(' ')
+                current_line = ""
+                
+                for word in words:
+                    if len(current_line + word) < max_chars_per_line:
+                        current_line += word + " "
+                    else:
+                        if current_line:
+                            question_lines.append(current_line.strip())
+                        current_line = word + " "
+                
+                if current_line:
+                    question_lines.append(current_line.strip())
+                
+                # Draw question lines centered
+                start_y = 80
+                line_height = 40
+                for i, line in enumerate(question_lines):
+                    (text_w, text_h), _ = cv2.getTextSize(line, font, question_font_scale, question_thickness)
+                    text_x = (frame_width - text_w) // 2
+                    text_y = start_y + (i * line_height)
+                    draw_modern_text(frame, line, (text_x, text_y), question_font_scale, question_thickness, (255, 255, 255))
+                
+                # Options - centered vertically and horizontally
+                num_options = len(current_question['options'])
+                option_height = 70
+                option_width = 600
+                total_options_height = num_options * option_height
+                
+                # Center the options block vertically
+                options_start_y = (frame_height - total_options_height) // 2 + 50
+                options_start_x = (frame_width - option_width) // 2
+                
                 option_boxes = []
                 for i, option in enumerate(current_question['options']):
-                    y_pos = 100 + i * 60; box = (50, y_pos, 550, y_pos + 50); option_boxes.append(box)
-                    color = (0, 255, 0) if hovered_option == i else (255, 100, 0)
-                    cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), color, 2)
-                    cv2.putText(frame, f"{i+1}. {option}", (60, y_pos + 35), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
+                    y_pos = options_start_y + i * option_height
+                    box = (options_start_x, y_pos, options_start_x + option_width, y_pos + option_height - 10)
+                    option_boxes.append(box)
+                    
+                    # Modern option styling
+                    is_hovered = (hovered_option == i)
+                    
+                    # Background rectangle with modern styling
+                    bg_color = (70, 130, 180) if is_hovered else (50, 50, 70)
+                    border_color = (100, 200, 255) if is_hovered else (120, 120, 140)
+                    
+                    # Draw rounded rectangle effect
+                    cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), bg_color, -1)
+                    cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), border_color, 3)
+                    
+                    # Option text - centered in each box
+                    option_text = f"{i+1}. {option}"
+                    option_font_scale = 0.8
+                    option_thickness = 2
+                    
+                    (opt_text_w, opt_text_h), _ = cv2.getTextSize(option_text, font, option_font_scale, option_thickness)
+                    text_x = box[0] + (option_width - opt_text_w) // 2
+                    text_y = box[1] + (option_height + opt_text_h) // 2
+                    
+                    text_color = (255, 255, 255) if is_hovered else (220, 220, 220)
+                    draw_modern_text(frame, option_text, (text_x, text_y), option_font_scale, option_thickness, text_color)
                 
                 currently_pointing_at = -1
                 if latest_gesture_result and latest_gesture_result.hand_landmarks:
@@ -455,7 +552,10 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                     if hover_start_time and hovered_option != -1:
                         elapsed_time = time.time() - hover_start_time
                         progress = elapsed_time / SELECTION_LOCK_DURATION
-                        cv2.ellipse(frame, (px, py), (20, 20), 270, 0, progress * 360, (0, 255, 255), 3)
+                        
+                        # Modern selection indicator
+                        cv2.ellipse(frame, (px, py), (25, 25), 270, 0, progress * 360, (0, 255, 255), 4)
+                        cv2.circle(frame, (px, py), 8, (255, 255, 255), -1)
 
                         if elapsed_time > SELECTION_LOCK_DURATION:
                             if hovered_option == current_question['answer']:
@@ -497,8 +597,3 @@ print("Cleaning up...")
 cap.release()
 cv2.destroyAllWindows()
 pygame.mixer.quit()
-
-# Clear CUDA cache if using GPU
-if DEVICE == 'cuda':
-    torch.cuda.empty_cache()
-    print("CUDA cache cleared.")
