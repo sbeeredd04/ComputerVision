@@ -361,59 +361,143 @@ def reset_game_state():
     pygame.mixer.stop()
 
 def draw_subtitles(frame, text):
+    """Draw subtitles with intelligent line wrapping and dynamic scaling"""
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 0.7 * text_scale_factor  # Apply dynamic scaling
     thickness = max(1, int(2 * thickness_scale_factor))
-    (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
-    x = (frame.shape[1] - text_width) // 2
-    y = frame.shape[0] - int(30 * text_scale_factor)  # Scale position too
+    
+    # Calculate maximum width for subtitle (90% of screen width)
+    max_width = int(frame.shape[1] * 0.9)
+    
+    # Split text into lines that fit within the maximum width
+    words = text.split(' ')
+    lines = []
+    current_line = ""
+    
+    for word in words:
+        test_line = current_line + word + " " if current_line else word + " "
+        (test_width, _), _ = cv2.getTextSize(test_line.strip(), font, font_scale, thickness)
+        
+        if test_width <= max_width:
+            current_line = test_line
+        else:
+            if current_line:
+                lines.append(current_line.strip())
+                current_line = word + " "
+            else:
+                # Single word is too long, add it anyway
+                lines.append(word)
+                current_line = ""
+    
+    if current_line:
+        lines.append(current_line.strip())
+    
+    # Calculate total height needed
+    line_height = int(text_scale_factor * 25)  # Space between lines
+    if lines:
+        (_, text_height), baseline = cv2.getTextSize(lines[0], font, font_scale, thickness)
+        total_height = len(lines) * text_height + (len(lines) - 1) * line_height
+    else:
+        return
+    
+    # Calculate starting position (ensure it doesn't go above 20% of screen height)
+    min_y = int(frame.shape[0] * 0.2)
+    preferred_y = frame.shape[0] - int(30 * text_scale_factor) - total_height + text_height
+    start_y = max(min_y, preferred_y)
+    
+    # Calculate background dimensions
+    padding = int(15 * text_scale_factor)
+    max_line_width = max([cv2.getTextSize(line, font, font_scale, thickness)[0][0] for line in lines])
+    bg_x1 = (frame.shape[1] - max_line_width) // 2 - padding
+    bg_y1 = start_y - text_height - padding
+    bg_x2 = (frame.shape[1] + max_line_width) // 2 + padding
+    bg_y2 = start_y + total_height - text_height + baseline + padding
     
     # Draw solid black background for better readability
-    padding = int(15 * text_scale_factor)  # Scale padding
-    cv2.rectangle(frame, 
-                 (x - padding, y - text_height - padding), 
-                 (x + text_width + padding, y + baseline + padding), 
-                 (0, 0, 0), -1)  # Solid black background
+    cv2.rectangle(frame, (bg_x1, bg_y1), (bg_x2, bg_y2), (0, 0, 0), -1)
     
     # Add a subtle border
     border_thickness = max(1, int(2 * thickness_scale_factor))
-    cv2.rectangle(frame, 
-                 (x - padding, y - text_height - padding), 
-                 (x + text_width + padding, y + baseline + padding), 
-                 (50, 50, 50), border_thickness)  # Dark gray border
+    cv2.rectangle(frame, (bg_x1, bg_y1), (bg_x2, bg_y2), (50, 50, 50), border_thickness)
     
-    # Draw the text
-    cv2.putText(frame, text, (x, y), font, font_scale, (255, 255, 255), thickness)
+    # Draw each line of text
+    for i, line in enumerate(lines):
+        (line_width, line_height_actual), _ = cv2.getTextSize(line, font, font_scale, thickness)
+        x = (frame.shape[1] - line_width) // 2
+        y = start_y + i * (text_height + line_height)
+        cv2.putText(frame, line, (x, y), font, font_scale, (255, 255, 255), thickness)
 
 def draw_command_subtitles(frame, text):
-    """Draw larger command subtitles for gesture prompts with dynamic scaling"""
+    """Draw larger command subtitles for gesture prompts with intelligent wrapping and dynamic scaling"""
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 1.2 * text_scale_factor  # Apply dynamic scaling
     thickness = max(2, int(3 * thickness_scale_factor))
-    (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
-    x = (frame.shape[1] - text_width) // 2
-    y = frame.shape[0] - int(60 * text_scale_factor)  # Scale position
+    
+    # Calculate maximum width for command subtitle (85% of screen width)
+    max_width = int(frame.shape[1] * 0.85)
+    
+    # Split text into lines that fit within the maximum width
+    words = text.split(' ')
+    lines = []
+    current_line = ""
+    
+    for word in words:
+        test_line = current_line + word + " " if current_line else word + " "
+        (test_width, _), _ = cv2.getTextSize(test_line.strip(), font, font_scale, thickness)
+        
+        if test_width <= max_width:
+            current_line = test_line
+        else:
+            if current_line:
+                lines.append(current_line.strip())
+                current_line = word + " "
+            else:
+                # Single word is too long, add it anyway
+                lines.append(word)
+                current_line = ""
+    
+    if current_line:
+        lines.append(current_line.strip())
+    
+    # Calculate total height needed
+    line_height = int(text_scale_factor * 30)  # Space between lines (larger for commands)
+    if lines:
+        (_, text_height), baseline = cv2.getTextSize(lines[0], font, font_scale, thickness)
+        total_height = len(lines) * text_height + (len(lines) - 1) * line_height
+    else:
+        return
+    
+    # Calculate starting position (higher up for commands, ensure it doesn't go above 15% of screen height)
+    min_y = int(frame.shape[0] * 0.15)
+    preferred_y = frame.shape[0] - int(60 * text_scale_factor) - total_height + text_height
+    start_y = max(min_y, preferred_y)
+    
+    # Calculate background dimensions
+    padding = int(20 * text_scale_factor)  # Scale padding
+    max_line_width = max([cv2.getTextSize(line, font, font_scale, thickness)[0][0] for line in lines])
+    bg_x1 = (frame.shape[1] - max_line_width) // 2 - padding
+    bg_y1 = start_y - text_height - padding
+    bg_x2 = (frame.shape[1] + max_line_width) // 2 + padding
+    bg_y2 = start_y + total_height - text_height + baseline + padding
     
     # Draw solid black background for better readability
-    padding = int(20 * text_scale_factor)  # Scale padding
-    cv2.rectangle(frame, 
-                 (x - padding, y - text_height - padding), 
-                 (x + text_width + padding, y + baseline + padding), 
-                 (0, 0, 0), -1)  # Solid black background
+    cv2.rectangle(frame, (bg_x1, bg_y1), (bg_x2, bg_y2), (0, 0, 0), -1)
     
     # Add a more prominent border for commands
     border_thickness = max(2, int(3 * thickness_scale_factor))
-    cv2.rectangle(frame, 
-                 (x - padding, y - text_height - padding), 
-                 (x + text_width + padding, y + baseline + padding), 
-                 (100, 200, 255), border_thickness)  # Blue border for commands
+    cv2.rectangle(frame, (bg_x1, bg_y1), (bg_x2, bg_y2), (100, 200, 255), border_thickness)
     
-    # Draw the text with a slight glow effect
+    # Draw each line of text with glow effect
     shadow_offset = max(1, int(2 * text_scale_factor))
-    # Draw shadow first
-    cv2.putText(frame, text, (x + shadow_offset, y + shadow_offset), font, font_scale, (0, 0, 0), thickness + 1)
-    # Draw main text
-    cv2.putText(frame, text, (x, y), font, font_scale, (255, 255, 255), thickness)
+    for i, line in enumerate(lines):
+        (line_width, line_height_actual), _ = cv2.getTextSize(line, font, font_scale, thickness)
+        x = (frame.shape[1] - line_width) // 2
+        y = start_y + i * (text_height + line_height)
+        
+        # Draw shadow first
+        cv2.putText(frame, line, (x + shadow_offset, y + shadow_offset), font, font_scale, (0, 0, 0), thickness + 1)
+        # Draw main text
+        cv2.putText(frame, line, (x, y), font, font_scale, (255, 255, 255), thickness)
 
 def draw_speaking_orb(frame):
     h, w, _ = frame.shape
