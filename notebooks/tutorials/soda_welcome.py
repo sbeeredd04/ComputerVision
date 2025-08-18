@@ -120,6 +120,7 @@ SELECTION_LOCK_DURATION = 3.0
 user_is_winner = False
 SUBTITLES = {}
 current_subtitle = ""
+current_command_subtitle = ""  # For larger command prompts
 
 # --- UI CUSTOMIZATION VARIABLES ---
 OPTION_BG_COLOR_NORMAL = (50, 50, 70)  # Normal option background color (BGR)
@@ -292,7 +293,7 @@ def get_new_question():
     current_question = random.choice(available_q)
 
 def reset_game_state():
-    global STATE, current_question, answered_questions, skip_available, user_is_winner, hovered_option, hover_start_time, person_detected_time, current_subtitle
+    global STATE, current_question, answered_questions, skip_available, user_is_winner, hovered_option, hover_start_time, person_detected_time, current_subtitle, current_command_subtitle
     print("DEBUG: Resetting game state to screensaver...")
     STATE = "SCREENSAVER"
     current_question = None
@@ -303,6 +304,7 @@ def reset_game_state():
     hover_start_time = None
     person_detected_time = None
     current_subtitle = ""
+    current_command_subtitle = ""
     pygame.mixer.stop()
 
 def draw_subtitles(frame, text):
@@ -327,6 +329,34 @@ def draw_subtitles(frame, text):
                  (50, 50, 50), 2)  # Dark gray border
     
     # Draw the text
+    cv2.putText(frame, text, (x, y), font, font_scale, (255, 255, 255), thickness)
+
+def draw_command_subtitles(frame, text):
+    """Draw larger command subtitles for gesture prompts"""
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 1.2  # Larger than normal subtitles
+    thickness = 3
+    (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
+    x = (frame.shape[1] - text_width) // 2
+    y = frame.shape[0] - 60  # Higher up to accommodate larger text
+    
+    # Draw solid black background for better readability
+    padding = 20  # More padding for larger text
+    cv2.rectangle(frame, 
+                 (x - padding, y - text_height - padding), 
+                 (x + text_width + padding, y + baseline + padding), 
+                 (0, 0, 0), -1)  # Solid black background
+    
+    # Add a more prominent border for commands
+    cv2.rectangle(frame, 
+                 (x - padding, y - text_height - padding), 
+                 (x + text_width + padding, y + baseline + padding), 
+                 (100, 200, 255), 3)  # Blue border for commands
+    
+    # Draw the text with a slight glow effect
+    # Draw shadow first
+    cv2.putText(frame, text, (x + 2, y + 2), font, font_scale, (0, 0, 0), thickness + 1)
+    # Draw main text
     cv2.putText(frame, text, (x, y), font, font_scale, (255, 255, 255), thickness)
 
 def draw_speaking_orb(frame):
@@ -500,17 +530,17 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
         
         # --- State Machine for Interaction ---
         if STATE == "GREETING" and not pygame.mixer.get_busy():
-            cv2.putText(frame, "Show me a THUMBS UP!", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            current_command_subtitle = "Show me a THUMBS UP!"
         elif STATE == "EXPLAINING" and not pygame.mixer.get_busy():
             STATE = "AWAITING_QUIZ_CHOICE"
             play_audio_by_name("game_request")
         elif STATE == "AWAITING_QUIZ_CHOICE" and not pygame.mixer.get_busy():
-            cv2.putText(frame, "Quiz? Thumbs UP (Yes) or DOWN (No)", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 255), 2)
+            current_command_subtitle = "Quiz? Thumbs UP (Yes) or DOWN (No)"
         elif STATE == "AWAITING_FEEDBACK_END" and not pygame.mixer.get_busy():
             STATE = "PROMPT_FOR_QR"
             play_audio_by_name("qr_prompt_after_quiz")
         elif STATE == "PROMPT_FOR_QR" and not pygame.mixer.get_busy():
-            cv2.putText(frame, "Show me a PEACE sign for the QR Code!", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 255), 2)
+            current_command_subtitle = "Show me a PEACE sign for the QR Code!"
         elif STATE == "SHOWING_QR":
             frame[10:210, frame_width-210:frame_width-10] = qr_img_cv
             if 'qr_start_time' not in locals(): qr_start_time = time.time()
@@ -632,10 +662,17 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
         if pygame.mixer.get_busy():
             draw_speaking_orb(frame)
         
+        # Draw regular subtitles when audio is playing
         if pygame.mixer.get_busy() and current_subtitle:
             draw_subtitles(frame, current_subtitle)
-        else:
+        elif not pygame.mixer.get_busy():
             current_subtitle = ""
+        
+        # Draw command subtitles when not playing audio and there's a command
+        if not pygame.mixer.get_busy() and current_command_subtitle:
+            draw_command_subtitles(frame, current_command_subtitle)
+        elif pygame.mixer.get_busy():  # Clear command subtitles when audio is playing
+            current_command_subtitle = ""
 
         if latest_gesture_result:
             for hand_landmarks in latest_gesture_result.hand_landmarks:
