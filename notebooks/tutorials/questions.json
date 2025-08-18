@@ -1,49 +1,334 @@
 {
-    "questions": [
-      {
-        "id": 1,
-        "question": "What does 'git clone' do?",
-        "options": [
-          "Creates a new branch",
-          "Copies a remote repository",
-          "Commits changes",
-          "Merges two branches"
-        ],
-        "answer": 1
-      },
-      {
-        "id": 2,
-        "question": "Which of these is NOT a primitive data type in JavaScript?",
-        "options": [
-          "Number",
-          "String",
-          "Boolean",
-          "Object"
-        ],
-        "answer": 3
-      },
-      {
-        "id": 3,
-        "question": "What is the time complexity of a binary search algorithm?",
-        "options": [
-          "O(n)",
-          "O(log n)",
-          "O(n^2)",
-          "O(1)"
-        ],
-        "answer": 1
-      },
-      {
-          "id": 4,
-          "question": "In Python, what keyword is used to define a function?",
-          "options": [
-            "func",
-            "function",
-            "def",
-            "define"
-          ],
-          "answer": 2
-        }
-    ]
-  }
-  
+  "questions": [
+    {
+      "id": 1,
+      "question": "What does 'git clone' do?",
+      "options": [
+        "Creates a new branch",
+        "Copies a remote repository",
+        "Commits changes",
+        "Merges two branches"
+      ],
+      "answer": 1
+    },
+    {
+      "id": 2,
+      "question": "Which of these is NOT a primitive data type in JavaScript?",
+      "options": [
+        "Number",
+        "String",
+        "Boolean",
+        "Object"
+      ],
+      "answer": 3
+    },
+    {
+      "id": 3,
+      "question": "What is the time complexity of a binary search algorithm?",
+      "options": [
+        "O(n)",
+        "O(log n)",
+        "O(n^2)",
+        "O(1)"
+      ],
+      "answer": 1
+    },
+    {
+      "id": 4,
+      "question": "In Python, what keyword is used to define a function?",
+      "options": [
+        "func",
+        "function",
+        "def",
+        "define"
+      ],
+      "answer": 2
+    },
+    {
+      "id": 5,
+      "question": "What does HTML stand for?",
+      "options": [
+        "Hypertext Markup Language",
+        "Hot Tea and More Laughs",
+        "How To Make Lasagna",
+        "High-Tech Memory Loss"
+      ],
+      "answer": 0
+    },
+    {
+      "id": 6,
+      "question": "Which data structure follows the Last In, First Out (LIFO) principle?",
+      "options": [
+        "Queue",
+        "Stack",
+        "Linked List",
+        "My dorm room laundry pile"
+      ],
+      "answer": 1
+    },
+    {
+      "id": 7,
+      "question": "What does CSS stand for?",
+      "options": [
+        "Computer Style Sheets",
+        "Cascading Style Sheets",
+        "Cool Stylish Students",
+        "Can't Stop Scrolling"
+      ],
+      "answer": 1
+    },
+    {
+      "id": 8,
+      "question": "In programming, what is a 'bug'?",
+      "options": [
+        "A small insect in your computer",
+        "An error in the code",
+        "A feature that works too well",
+        "The reason I cry at 3 AM"
+      ],
+      "answer": 1
+    },
+    {
+      "id": 9,
+      "question": "What does 'SQL' stand for?",
+      "options": [
+        "Super Quick Language",
+        "Structured Query Language",
+        "Students Quit Learning",
+        "Seriously Questionable Logic"
+      ],
+      "answer": 1
+    },
+    {
+      "id": 10,
+      "question": "Which of these is a popular programming language for data science?",
+      "options": [
+        "HTML",
+        "Python",
+        "CSS",
+        "Parseltongue"
+      ],
+      "answer": 1
+    },
+    {
+      "id": 11,
+      "question": "What is the main purpose of a compiler?",
+      "options": [
+        "To complain about your code",
+        "To translate high-level code to machine code",
+        "To compile your grocery list",
+        "To make you question your life choices"
+      ],
+      "answer": 1
+    },
+    {
+      "id": 12,
+      "question": "In binary, what is 1010 in decimal?",
+      "options": [
+        "8",
+        "10",
+        "12",
+        "The number of times I've forgotten my password today"
+      ],
+      "answer": 1
+    },
+    {
+      "id": 13,
+      "question": "What does API stand for?",
+      "options": [
+        "Application Programming Interface",
+        "Absolutely Perfect Intelligence",
+        "Another Programming Impossibility",
+        "All Pizza Included"
+      ],
+      "answer": 0
+    },
+    {
+      "id": 14,
+      "question": "Which symbol is commonly used for comments in Python?",
+      "options": [
+        "//",
+        "#",
+        "/*",
+        "Why would I document my code?"
+      ],
+      "answer": 1
+    },
+    {
+      "id": 15,
+      "question": "What is 'debugging'?",
+      "options": [
+        "Removing insects from your computer",
+        "Finding and fixing errors in code",
+        "A fancy word for crying",
+        "What I do instead of sleeping"
+      ],
+      "answer": 1
+    },
+    {
+      "id": 16,
+      "question": "Which of these is NOT a loop type in most programming languages?",
+      "options": [
+        "for loop",
+        "while loop",
+        "do-while loop",
+        "fruit loop"
+      ],
+      "answer": 3
+    },
+    {
+      "id": 17,
+      "question": "What is the result of 5 // 2 in Python?",
+      "options": [
+        "2.5",
+        "2",
+        "3",
+        "A very confused calculator"
+      ],
+      "answer": 1
+    },
+    {
+      "id": 18,
+      "question": "Which company created the Java programming language?",
+      "options": [
+        "Microsoft",
+        "Apple",
+        "Sun Microsystems",
+        "Starbucks (they love Java)"
+      ],
+      "answer": 2
+    },
+    {
+      "id": 19,
+      "question": "What does 'open source' mean?",
+      "options": [
+        "Code that anyone can view and modify",
+        "A program that opens sources of water",
+        "Code written in an open field",
+        "When you forget to close your IDE"
+      ],
+      "answer": 0
+    },
+    {
+      "id": 20,
+      "question": "In object-oriented programming, what is 'inheritance'?",
+      "options": [
+        "Money left by your programming grandparents",
+        "When a class acquires properties from another class",
+        "The reason your code runs slow",
+        "What you get when your parents are both programmers"
+      ],
+      "answer": 1
+    },
+    {
+      "id": 21,
+      "question": "What is the most common programming error for beginners?",
+      "options": [
+        "Syntax errors",
+        "Logic errors",
+        "Forgetting semicolons",
+        "Thinking they can code without coffee"
+      ],
+      "answer": 0
+    },
+    {
+      "id": 22,
+      "question": "What does 'RAM' stand for in computer terms?",
+      "options": [
+        "Random Access Memory",
+        "Really Awesome Machine",
+        "Rapid Application Management",
+        "Ramen And More (what I live on)"
+      ],
+      "answer": 0
+    },
+    {
+      "id": 23,
+      "question": "Which of these is a version control system?",
+      "options": [
+        "Git",
+        "Sit",
+        "Fit",
+        "Hit (when your code doesn't work)"
+      ],
+      "answer": 0
+    },
+    {
+      "id": 24,
+      "question": "What is the purpose of an IDE?",
+      "options": [
+        "Integrated Development Environment for coding",
+        "Internet Download Enhancement",
+        "Incredibly Difficult Equations",
+        "I Don't Even know what I'm doing"
+      ],
+      "answer": 0
+    },
+    {
+      "id": 25,
+      "question": "In web development, what does 'responsive design' mean?",
+      "options": [
+        "A website that responds to user clicks very fast",
+        "A website that adapts to different screen sizes",
+        "A website that talks back to you",
+        "A website that responds to your emotional needs"
+      ],
+      "answer": 1
+    },
+    {
+      "id": 26,
+      "question": "What is 'pseudocode'?",
+      "options": [
+        "Fake code that doesn't work",
+        "Code written in a made-up language",
+        "A plain-language description of code logic",
+        "What I write when I pretend to understand algorithms"
+      ],
+      "answer": 2
+    },
+    {
+      "id": 27,
+      "question": "Which of these is NOT a common web browser?",
+      "options": [
+        "Chrome",
+        "Firefox",
+        "Safari",
+        "Internet Exploder"
+      ],
+      "answer": 3
+    },
+    {
+      "id": 28,
+      "question": "What does 'URL' stand for?",
+      "options": [
+        "Uniform Resource Locator",
+        "Universal Reading Language",
+        "Utterly Random Letters",
+        "Usually Really Long (like my code)"
+      ],
+      "answer": 0
+    },
+    {
+      "id": 29,
+      "question": "In programming, what is recursion?",
+      "options": [
+        "When a function calls itself",
+        "When you recurse through your code",
+        "When you repeat the same mistake",
+        "See question 29"
+      ],
+      "answer": 0
+    },
+    {
+      "id": 30,
+      "question": "What is the first rule of programming?",
+      "options": [
+        "Always comment your code",
+        "Test everything twice",
+        "Google is your best friend",
+        "We don't talk about programming (Fight Club reference)"
+      ],
+      "answer": 2
+    }
+  ]
+}
