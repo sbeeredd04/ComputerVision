@@ -15,6 +15,7 @@ import json
 import random
 import wave
 import hashlib
+import torch
 
 # --- Dependency for SVG rendering ---
 try:
@@ -99,7 +100,7 @@ class RobotTTS:
 # --- INITIALIZATION ---
 STATE = "SCREENSAVER"
 PERSON_CONFIDENCE_THRESHOLD = 0.6
-PERSON_PRESENCE_TIME_THRESHOLD = 2.0 # Increased slightly to prevent accidental triggers
+PERSON_PRESENCE_TIME_THRESHOLD = 3.0  # Configurable timer for person detection
 YOUR_CLUB_WEBSITE_URL = "https://www.yourclubwebsite.com"
 latest_gesture_result = None
 MODEL_PATH = "gesture_recognizer.task"
@@ -119,6 +120,21 @@ SELECTION_LOCK_DURATION = 3.0
 user_is_winner = False
 SUBTITLES = {}
 current_subtitle = ""
+
+# --- UI CUSTOMIZATION VARIABLES ---
+OPTION_BG_COLOR_NORMAL = (50, 50, 70)  # Normal option background color (BGR)
+OPTION_BG_COLOR_HOVER = (70, 130, 180)  # Hovered option background color (BGR)
+OPTION_BORDER_COLOR_NORMAL = (120, 120, 140)  # Normal option border color (BGR)
+OPTION_BORDER_COLOR_HOVER = (100, 200, 255)  # Hovered option border color (BGR)
+
+# --- CUDA DETECTION ---
+CUDA_AVAILABLE = torch.cuda.is_available()
+if CUDA_AVAILABLE:
+    print(f"CUDA is available! Using GPU: {torch.cuda.get_device_name(0)}")
+    DEVICE = 'cuda'
+else:
+    print("CUDA not available. Using CPU.")
+    DEVICE = 'cpu'
 
 try:
     with open('questions.json', 'r') as f:
@@ -167,24 +183,57 @@ def overlay_transparent_image(background, overlay, x, y):
         background[y:y+h, x:x+w, c] = (alpha * overlay_rgb[:, :, c] +
                                        (1 - alpha) * background[y:y+h, x:x+w, c])
 
-def create_gradient_background(frame_height, frame_width):
-    """Creates a modern gradient background."""
+def create_dynamic_gradient_background(frame_height, frame_width):
+    """Creates a dynamic gradient background with white, black, blue, and red that changes constantly."""
     gradient = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
     
-    # Create a diagonal gradient from dark blue to dark purple
+    # Time-based animation for living gradient effect
+    t = time.time()
+    
+    # Multiple wave patterns for complex color mixing
+    wave1 = math.sin(t * 0.5) * 0.5 + 0.5  # Slow wave
+    wave2 = math.sin(t * 1.2) * 0.5 + 0.5  # Medium wave
+    wave3 = math.sin(t * 2.0) * 0.5 + 0.5  # Fast wave
+    wave4 = math.cos(t * 0.8) * 0.5 + 0.5  # Cosine wave for variation
+    
     for i in range(frame_height):
         for j in range(frame_width):
             # Normalize coordinates
             y_norm = i / frame_height
             x_norm = j / frame_width
             
-            # Create diagonal gradient factor
-            gradient_factor = (y_norm + x_norm) / 2
+            # Create multiple gradient factors with time animation
+            diagonal_factor = (y_norm + x_norm) / 2
+            radial_factor = math.sqrt((x_norm - 0.5)**2 + (y_norm - 0.5)**2)
             
-            # Dark blue to dark purple gradient
-            blue = int(20 + gradient_factor * 40)  # 20-60
-            green = int(10 + gradient_factor * 20)  # 10-30
-            red = int(30 + gradient_factor * 50)   # 30-80
+            # Animated color mixing with white, black, blue, and red
+            # Blue component (animated)
+            blue_base = int(30 + diagonal_factor * 100 * wave1 + radial_factor * 80 * wave2)
+            blue = max(0, min(255, blue_base))
+            
+            # Red component (animated)
+            red_base = int(20 + (1 - diagonal_factor) * 120 * wave3 + y_norm * 60 * wave4)
+            red = max(0, min(255, red_base))
+            
+            # Green component (creates white when combined, animated)
+            green_base = int(15 + x_norm * 80 * wave2 + (1 - radial_factor) * 100 * wave1)
+            green = max(0, min(255, green_base))
+            
+            # Add some white highlights that move around
+            white_factor = math.sin(t + x_norm * 10) * math.cos(t * 1.5 + y_norm * 8)
+            if white_factor > 0.7:
+                white_intensity = int((white_factor - 0.7) * 200)
+                blue = min(255, blue + white_intensity)
+                green = min(255, green + white_intensity)
+                red = min(255, red + white_intensity)
+            
+            # Add some black areas that shift
+            black_factor = math.sin(t * 0.3 + x_norm * 5) * math.cos(t * 0.7 + y_norm * 6)
+            if black_factor < -0.6:
+                black_intensity = abs(black_factor + 0.6) * 0.8
+                blue = int(blue * (1 - black_intensity))
+                green = int(green * (1 - black_intensity))
+                red = int(red * (1 - black_intensity))
             
             gradient[i, j] = [blue, green, red]
     
@@ -263,9 +312,21 @@ def draw_subtitles(frame, text):
     (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
     x = (frame.shape[1] - text_width) // 2
     y = frame.shape[0] - 30
-    sub_img = frame.copy()
-    cv2.rectangle(sub_img, (x - 10, y - text_height - 10), (x + text_width + 10, y + baseline), (0,0,0), -1)
-    cv2.addWeighted(sub_img, 0.5, frame, 0.5, 0, frame)
+    
+    # Draw solid black background for better readability
+    padding = 15
+    cv2.rectangle(frame, 
+                 (x - padding, y - text_height - padding), 
+                 (x + text_width + padding, y + baseline + padding), 
+                 (0, 0, 0), -1)  # Solid black background
+    
+    # Add a subtle border
+    cv2.rectangle(frame, 
+                 (x - padding, y - text_height - padding), 
+                 (x + text_width + padding, y + baseline + padding), 
+                 (50, 50, 50), 2)  # Dark gray border
+    
+    # Draw the text
     cv2.putText(frame, text, (x, y), font, font_scale, (255, 255, 255), thickness)
 
 def draw_speaking_orb(frame):
@@ -304,7 +365,13 @@ def process_gesture_result(result: vision.GestureRecognizerResult, output_image:
 
 # --- MAIN APPLICATION SETUP ---
 pregenerate_static_audio()
+# Initialize YOLO model with CUDA support if available
 yolo_model = YOLO("yolov8n.pt")
+if CUDA_AVAILABLE:
+    yolo_model.to(DEVICE)
+    print(f"YOLO model loaded on {DEVICE}")
+else:
+    print(f"YOLO model loaded on {DEVICE}")
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
 pygame.mixer.init()
@@ -329,8 +396,8 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
     while cap.isOpened():
         # --- SCREENSAVER LOGIC ---
         if STATE == "SCREENSAVER" or STATE == "PERSON_DETECTED":
-            # Create modern gradient background
-            frame = create_gradient_background(frame_height, frame_width)
+            # Create dynamic gradient background
+            frame = create_dynamic_gradient_background(frame_height, frame_width)
             
             # Add subtle animated pattern
             t = time.time()
@@ -406,14 +473,6 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                  print("DEBUG: Person lost. Returning to screensaver.")
                  STATE = "SCREENSAVER"
                  person_detected_time = None
-            
-            # --- On-screen debug text for screensaver mode (modern styling) ---
-            debug_bg = frame.copy()
-            cv2.rectangle(debug_bg, (5, 5), (400, 80), (30, 30, 30), -1)
-            cv2.addWeighted(debug_bg, 0.7, frame, 0.3, 0, frame)
-            
-            draw_modern_text(frame, f"STATE: {STATE}", (15, 30), 0.6, 1, (255, 255, 100))
-            draw_modern_text(frame, f"Person Detected: {person_found}", (15, 55), 0.6, 1, (255, 255, 100))
 
             cv2.imshow('Robot Interaction View', frame)
             if cv2.waitKey(5) & 0xFF == 27: break
@@ -515,9 +574,9 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                     # Modern option styling
                     is_hovered = (hovered_option == i)
                     
-                    # Background rectangle with modern styling
-                    bg_color = (70, 130, 180) if is_hovered else (50, 50, 70)
-                    border_color = (100, 200, 255) if is_hovered else (120, 120, 140)
+                    # Background rectangle with configurable colors
+                    bg_color = OPTION_BG_COLOR_HOVER if is_hovered else OPTION_BG_COLOR_NORMAL
+                    border_color = OPTION_BORDER_COLOR_HOVER if is_hovered else OPTION_BORDER_COLOR_NORMAL
                     
                     # Draw rounded rectangle effect
                     cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), bg_color, -1)
@@ -584,10 +643,6 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                 hand_landmarks_proto.landmark.extend([landmark_pb2.NormalizedLandmark(x=l.x, y=l.y, z=l.z) for l in hand_landmarks])
                 mp_drawing.draw_landmarks(frame, hand_landmarks_proto, mp_hands.HAND_CONNECTIONS)
         
-        # --- On-screen debug text for interactive mode ---
-        cv2.putText(frame, f"STATE: {STATE}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
-        cv2.putText(frame, f"Person Visible: {person_found_interactive}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
-
 
         cv2.imshow('Robot Interaction View', frame)
         if cv2.waitKey(5) & 0xFF == 27: break
