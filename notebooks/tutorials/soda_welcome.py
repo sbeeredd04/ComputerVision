@@ -161,6 +161,27 @@ BASE_HEIGHT = 480
 text_scale_factor = 1.0
 thickness_scale_factor = 1.0
 
+# --- QUIZ SCALING VARIABLES ---
+# Adjustable scaling multiplier for quiz questions and options
+# Increase this value to make quiz text larger, decrease to make it smaller
+# This multiplier is applied on top of the automatic text_scale_factor
+#
+# USAGE EXAMPLES:
+# - For larger screens or when text appears too small: QUIZ_SCALE_MULTIPLIER = 1.5
+# - For smaller screens or when text appears too large: QUIZ_SCALE_MULTIPLIER = 0.7
+# - For high-resolution displays: QUIZ_SCALE_MULTIPLIER = 2.0
+#
+QUIZ_SCALE_MULTIPLIER = 1.0  # Default: 1.0 (no additional scaling)
+
+# Individual scaling for questions vs options (applied on top of QUIZ_SCALE_MULTIPLIER)
+# These control the relative sizes between questions and answer options
+QUESTION_FONT_SCALE_BASE = 1.0  # Base font scale for questions (larger = more prominent)
+OPTION_FONT_SCALE_BASE = 0.8    # Base font scale for options (smaller = less prominent)
+#
+# FINAL SCALING FORMULA:
+# Question font size = QUESTION_FONT_SCALE_BASE * QUIZ_SCALE_MULTIPLIER * text_scale_factor
+# Option font size = OPTION_FONT_SCALE_BASE * QUIZ_SCALE_MULTIPLIER * text_scale_factor
+
 # --- CUDA DETECTION ---
 CUDA_AVAILABLE = torch.cuda.is_available()
 if CUDA_AVAILABLE:
@@ -719,11 +740,13 @@ with recognizer:
                 # Question text - centered at top with dynamic scaling
                 question_text = current_question['question']
                 font = cv2.FONT_HERSHEY_SIMPLEX
-                question_font_scale = 1.0
+                question_font_scale = QUESTION_FONT_SCALE_BASE * QUIZ_SCALE_MULTIPLIER
                 question_thickness = 2
                 
                 # Split question into multiple lines if too long (adjust for scaling)
-                max_chars_per_line = max(30, int(60 / text_scale_factor))  # Fewer chars on smaller screens
+                # Adjust character limit based on both global scaling and quiz scaling
+                effective_scale = text_scale_factor * QUIZ_SCALE_MULTIPLIER
+                max_chars_per_line = max(30, int(60 / effective_scale))  # Fewer chars on smaller screens or larger text
                 question_lines = []
                 words = question_text.split(' ')
                 current_line = ""
@@ -740,8 +763,8 @@ with recognizer:
                     question_lines.append(current_line.strip())
                 
                 # Draw question lines centered with scaling
-                start_y = int(80 * text_scale_factor)
-                line_height = int(40 * text_scale_factor)
+                start_y = int(80 * text_scale_factor * QUIZ_SCALE_MULTIPLIER)
+                line_height = int(40 * text_scale_factor * QUIZ_SCALE_MULTIPLIER)
                 for i, line in enumerate(question_lines):
                     # Calculate size with scaling applied
                     scaled_font_size = question_font_scale * text_scale_factor
@@ -753,18 +776,18 @@ with recognizer:
                 
                 # Options - centered vertically and horizontally with dynamic scaling
                 num_options = len(current_question['options'])
-                option_height = int(70 * text_scale_factor)
-                option_width = min(int(600 * text_scale_factor), frame_width - int(40 * text_scale_factor))  # Ensure it fits
+                option_height = int(70 * text_scale_factor * QUIZ_SCALE_MULTIPLIER)
+                option_width = min(int(600 * text_scale_factor * QUIZ_SCALE_MULTIPLIER), frame_width - int(40 * text_scale_factor))  # Ensure it fits
                 total_options_height = num_options * option_height
                 
                 # Center the options block vertically
-                options_start_y = (frame_height - total_options_height) // 2 + int(50 * text_scale_factor)
+                options_start_y = (frame_height - total_options_height) // 2 + int(50 * text_scale_factor * QUIZ_SCALE_MULTIPLIER)
                 options_start_x = (frame_width - option_width) // 2
                 
                 option_boxes = []
                 for i, option in enumerate(current_question['options']):
                     y_pos = options_start_y + i * option_height
-                    box = (options_start_x, y_pos, options_start_x + option_width, y_pos + option_height - int(10 * text_scale_factor))
+                    box = (options_start_x, y_pos, options_start_x + option_width, y_pos + option_height - int(10 * text_scale_factor * QUIZ_SCALE_MULTIPLIER))
                     option_boxes.append(box)
                     
                     # Modern option styling
@@ -781,7 +804,7 @@ with recognizer:
                     
                     # Option text - centered in each box with dynamic scaling
                     option_text = f"{i+1}. {option}"
-                    option_font_scale = 0.8
+                    option_font_scale = OPTION_FONT_SCALE_BASE * QUIZ_SCALE_MULTIPLIER
                     option_thickness = 2
                     
                     # Calculate size with scaling applied
@@ -813,9 +836,9 @@ with recognizer:
                         progress = elapsed_time / SELECTION_LOCK_DURATION
                         
                         # Modern selection indicator with dynamic scaling
-                        indicator_radius = int(25 * text_scale_factor)
+                        indicator_radius = int(25 * text_scale_factor * QUIZ_SCALE_MULTIPLIER)
                         indicator_thickness = max(2, int(4 * thickness_scale_factor))
-                        center_radius = int(8 * text_scale_factor)
+                        center_radius = int(8 * text_scale_factor * QUIZ_SCALE_MULTIPLIER)
                         cv2.ellipse(frame, (px, py), (indicator_radius, indicator_radius), 270, 0, progress * 360, (0, 255, 255), indicator_thickness)
                         cv2.circle(frame, (px, py), center_radius, (255, 255, 255), -1)
 
