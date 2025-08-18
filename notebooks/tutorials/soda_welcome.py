@@ -16,6 +16,23 @@ import random
 import wave
 import hashlib
 import torch
+import logging
+import warnings
+
+# Suppress warnings
+warnings.filterwarnings('ignore')
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow warnings
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('soda_robot.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # --- Dependency for SVG rendering ---
 try:
@@ -24,7 +41,7 @@ try:
     SVG_SUPPORT = True
 except ImportError:
     SVG_SUPPORT = False
-    print("WARNING: svglib or reportlab is not installed. The SVG logo will not be displayed. Please run 'pip install svglib reportlab Pillow'")
+    logger.warning("svglib or reportlab is not installed. The SVG logo will not be displayed. Please run 'pip install svglib reportlab Pillow'")
 
 
 # --- TTS Class for On-the-Fly Audio Generation ---
@@ -65,7 +82,7 @@ class RobotTTS:
                 wf.writeframes(pcm_data)
             return True
         except Exception as e:
-            print(f"ERROR: Failed to save audio to {filename}: {e}")
+            logger.error(f"Failed to save audio to {filename}: {e}")
             return False
 
     def generate_speech(self, text, style="", filename_override=None):
@@ -74,7 +91,7 @@ class RobotTTS:
             return audio_filename
         
         try:
-            print(f"Generating new audio for: {filename_override or text[:20]}...")
+            logger.info(f"Generating new audio for: {filename_override or text[:20]}...")
             prompt = f"Say {style}: {text}" if style else text
             response = self.client.models.generate_content(
                 model="gemini-2.5-flash-preview-tts",
@@ -94,7 +111,7 @@ class RobotTTS:
             if self._save_wave_file(audio_filename, audio_data):
                 return audio_filename
         except Exception as e:
-            print(f"ERROR generating speech for '{text[:20]}...': {e}")
+            logger.error(f"Error generating speech for '{text[:20]}...': {e}")
         return None
 
 # --- INITIALIZATION ---
@@ -131,33 +148,33 @@ OPTION_BORDER_COLOR_HOVER = (100, 200, 255)  # Hovered option border color (BGR)
 # --- CUDA DETECTION ---
 CUDA_AVAILABLE = torch.cuda.is_available()
 if CUDA_AVAILABLE:
-    print(f"CUDA is available! Using GPU: {torch.cuda.get_device_name(0)}")
+    logger.info(f"CUDA is available! Using GPU: {torch.cuda.get_device_name(0)}")
     DEVICE = 'cuda'
 else:
-    print("CUDA not available. Using CPU.")
+    logger.info("CUDA not available. Using CPU.")
     DEVICE = 'cpu'
 
 try:
     with open('questions.json', 'r') as f:
         quiz_questions = json.load(f)['questions']
-    print(f"Loaded {len(quiz_questions)} quiz questions.")
+    logger.info(f"Loaded {len(quiz_questions)} quiz questions.")
 except Exception as e:
-    print(f"Error loading questions.json: {e}"); exit()
+    logger.error(f"Error loading questions.json: {e}"); exit()
 
 try:
     tts = RobotTTS()
 except Exception as e:
-    print(f"Failed to initialize TTS: {e}"); exit()
+    logger.error(f"Failed to initialize TTS: {e}"); exit()
 
 # --- HELPER & GAME FUNCTIONS ---
 
 def load_logo(target_width):
     """Loads SVG, renders it to a PIL Image, and converts to an OpenCV-compatible format."""
     if not SVG_SUPPORT or not os.path.exists(LOGO_SVG_PATH):
-        print(f"DEBUG: Logo not loaded. SVG support: {SVG_SUPPORT}, Path exists: {os.path.exists(LOGO_SVG_PATH)}")
+        logger.debug(f"Logo not loaded. SVG support: {SVG_SUPPORT}, Path exists: {os.path.exists(LOGO_SVG_PATH)}")
         return None
     try:
-        print("DEBUG: Attempting to load and render SVG...")
+        logger.debug("Attempting to load and render SVG...")
         drawing = svg2rlg(LOGO_SVG_PATH)
         if drawing.width == 0: return None # Handle empty SVG
         
@@ -169,10 +186,10 @@ def load_logo(target_width):
         # This is the most compatible way to render, using the Pillow backend
         pil_image = renderPM.drawToPIL(drawing, bg=(255, 255, 255, 0)) # Transparent BG
         
-        print("DEBUG: SVG successfully rendered to PIL Image.")
+        logger.debug("SVG successfully rendered to PIL Image.")
         return cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGBA2BGRA)
     except Exception as e:
-        print(f"CRITICAL ERROR loading or converting SVG logo: {e}")
+        logger.error(f"Critical error loading or converting SVG logo: {e}")
         return None
 
 def overlay_transparent_image(background, overlay, x, y):
@@ -252,7 +269,7 @@ def draw_modern_text(frame, text, position, font_scale=1.0, thickness=2, color=(
     cv2.putText(frame, text, position, font, font_scale, color, thickness, cv2.LINE_AA)
 
 def pregenerate_static_audio():
-    print("Pre-generating static audio files if they don't exist...")
+    logger.info("Pre-generating static audio files if they don't exist...")
     audio_map = {
         "greeting": ("Hey there! Nice to meet you! Give me a thumbs up to learn about SoDA!", "cheerfully"),
         "about_soda": ("SoDA is the Software Development Association! We build cool projects and learn together.", "enthusiastically"),
@@ -267,7 +284,7 @@ def pregenerate_static_audio():
     for name, (text, style) in audio_map.items():
         tts.generate_speech(text, style, name)
         SUBTITLES[name] = text
-    print("Static audio ready.")
+    logger.info("Static audio ready.")
 
 def play_audio_by_name(filename):
     global current_subtitle
@@ -276,7 +293,7 @@ def play_audio_by_name(filename):
         pygame.mixer.Sound(filepath).play()
         current_subtitle = SUBTITLES.get(filename, "")
     else:
-        print(f"ERROR: Audio file not found: {filepath}")
+        logger.error(f"Audio file not found: {filepath}")
 
 def play_dynamic_audio(text, style=""):
     filepath = tts.generate_speech(text, style)
@@ -289,12 +306,13 @@ def get_new_question():
     if not available_q:
         answered_questions = set()
         available_q = quiz_questions
+        logger.info("All questions answered, resetting question pool")
         play_dynamic_audio("You've answered all the questions! Let's start over.", "excitedly")
     current_question = random.choice(available_q)
 
 def reset_game_state():
     global STATE, current_question, answered_questions, skip_available, user_is_winner, hovered_option, hover_start_time, person_detected_time, current_subtitle, current_command_subtitle
-    print("DEBUG: Resetting game state to screensaver...")
+    logger.debug("Resetting game state to screensaver...")
     STATE = "SCREENSAVER"
     current_question = None
     answered_questions = set()
@@ -399,9 +417,9 @@ pregenerate_static_audio()
 yolo_model = YOLO("yolov8n.pt")
 if CUDA_AVAILABLE:
     yolo_model.to(DEVICE)
-    print(f"YOLO model loaded on {DEVICE}")
+    logger.info(f"YOLO model loaded on {DEVICE}")
 else:
-    print(f"YOLO model loaded on {DEVICE}")
+    logger.info(f"YOLO model loaded on {DEVICE}")
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
 pygame.mixer.init()
@@ -413,11 +431,11 @@ qr_img_cv = cv2.cvtColor(np.array(qr_img_pil), cv2.COLOR_RGB2BGR)
 base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
 options = vision.GestureRecognizerOptions(base_options=base_options, running_mode=vision.RunningMode.LIVE_STREAM, num_hands=2, result_callback=process_gesture_result)
 
-print("Starting camera feed...")
+logger.info("Starting camera feed...")
 cap = cv2.VideoCapture(0)
 success, temp_frame = cap.read()
 if not success:
-    print("Could not read from camera. Exiting.")
+    logger.error("Could not read from camera. Exiting.")
     exit()
 frame_height, frame_width, _ = temp_frame.shape
 logo_img = load_logo(target_width=int(frame_width * 0.4))
@@ -481,7 +499,7 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                 if STATE == "SCREENSAVER":
                     STATE = "PERSON_DETECTED"
                     person_detected_time = time.time()
-                    print(f"DEBUG: Person detected! Starting {PERSON_PRESENCE_TIME_THRESHOLD}s timer.")
+                    logger.debug(f"Person detected! Starting {PERSON_PRESENCE_TIME_THRESHOLD}s timer.")
                 
                 elapsed_time = time.time() - (person_detected_time or 0)
                 # Modern timer display
@@ -492,7 +510,7 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                 draw_modern_text(frame, timer_text, (50, 85), 0.9, 2, (0, 255, 150))
 
                 if elapsed_time > PERSON_PRESENCE_TIME_THRESHOLD:
-                    print("DEBUG: Timer finished. Switching to GREETING state.")
+                    logger.debug("Timer finished. Switching to GREETING state.")
                     STATE = "GREETING"
                     # --- BUG FIX: Initialize last_person_seen_time here! ---
                     # This prevents the immediate timeout in the interactive loop.
@@ -500,10 +518,12 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                     play_audio_by_name("greeting")
             
             elif STATE == "PERSON_DETECTED":
-                 print("DEBUG: Person lost. Returning to screensaver.")
+                 logger.debug("Person lost. Returning to screensaver.")
                  STATE = "SCREENSAVER"
                  person_detected_time = None
 
+            cv2.namedWindow('Robot Interaction View', cv2.WINDOW_NORMAL)
+            cv2.setWindowProperty('Robot Interaction View', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
             cv2.imshow('Robot Interaction View', frame)
             if cv2.waitKey(5) & 0xFF == 27: break
             continue
@@ -681,11 +701,13 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
                 mp_drawing.draw_landmarks(frame, hand_landmarks_proto, mp_hands.HAND_CONNECTIONS)
         
 
+        cv2.namedWindow('Robot Interaction View', cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty('Robot Interaction View', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         cv2.imshow('Robot Interaction View', frame)
         if cv2.waitKey(5) & 0xFF == 27: break
 
 # --- CLEANUP ---
-print("Cleaning up...")
+logger.info("Cleaning up...")
 cap.release()
 cv2.destroyAllWindows()
 pygame.mixer.quit()

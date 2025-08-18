@@ -1,0 +1,9 @@
+2025-08-17 17:39:42,649 - INFO - CUDA not available. Using CPU.
+2025-08-17 17:39:42,649 - INFO - Loaded 4 quiz questions.
+2025-08-17 17:39:42,649 - INFO - Pre-generating static audio files if they don't exist...
+2025-08-17 17:39:42,649 - INFO - Static audio ready.
+2025-08-17 17:39:42,679 - INFO - YOLO model loaded on cpu
+2025-08-17 17:39:42,883 - INFO - Starting camera feed...
+2025-08-17 17:39:44,817 - ERROR - Critical error loading or converting SVG logo: cannot import desired renderPM backend rlPyCairo
+Seek advice at the users list see
+https://pairlist2.pair.net/mailman/listinfo/reportlab-users
