@@ -153,6 +153,14 @@ OPTION_BG_COLOR_HOVER = (70, 130, 180)  # Hovered option background color (BGR)
 OPTION_BORDER_COLOR_NORMAL = (120, 120, 140)  # Normal option border color (BGR)
 OPTION_BORDER_COLOR_HOVER = (100, 200, 255)  # Hovered option border color (BGR)
 
+# --- TEXT SCALING VARIABLES ---
+# Base dimensions for scaling (typical webcam resolution)
+BASE_WIDTH = 640
+BASE_HEIGHT = 480
+# Global scaling factors (will be set based on actual camera dimensions)
+text_scale_factor = 1.0
+thickness_scale_factor = 1.0
+
 # --- CUDA DETECTION ---
 CUDA_AVAILABLE = torch.cuda.is_available()
 if CUDA_AVAILABLE:
@@ -265,16 +273,35 @@ def create_dynamic_gradient_background(frame_height, frame_width):
     
     return gradient
 
+def calculate_text_scaling(frame_width, frame_height):
+    """Calculate scaling factors based on frame dimensions"""
+    global text_scale_factor, thickness_scale_factor
+    
+    # Calculate scaling based on both width and height, use the smaller factor to ensure text fits
+    width_scale = frame_width / BASE_WIDTH
+    height_scale = frame_height / BASE_HEIGHT
+    
+    # Use the minimum scale to ensure text fits in both dimensions
+    text_scale_factor = min(width_scale, height_scale)
+    thickness_scale_factor = max(1, int(text_scale_factor))
+    
+    logger.info(f"Text scaling calculated: scale={text_scale_factor:.2f}, thickness={thickness_scale_factor}")
+
 def draw_modern_text(frame, text, position, font_scale=1.0, thickness=2, color=(255, 255, 255)):
-    """Draws text with modern styling including shadow effect."""
+    """Draws text with modern styling including shadow effect and dynamic scaling."""
     font = cv2.FONT_HERSHEY_SIMPLEX
     
-    # Draw shadow first (offset by 2 pixels)
-    shadow_pos = (position[0] + 2, position[1] + 2)
-    cv2.putText(frame, text, shadow_pos, font, font_scale, (0, 0, 0), thickness + 1)
+    # Apply dynamic scaling
+    scaled_font_size = font_scale * text_scale_factor
+    scaled_thickness = max(1, int(thickness * thickness_scale_factor))
+    shadow_offset = max(1, int(2 * text_scale_factor))
+    
+    # Draw shadow first (scaled offset)
+    shadow_pos = (position[0] + shadow_offset, position[1] + shadow_offset)
+    cv2.putText(frame, text, shadow_pos, font, scaled_font_size, (0, 0, 0), scaled_thickness + 1)
     
     # Draw main text
-    cv2.putText(frame, text, position, font, font_scale, color, thickness, cv2.LINE_AA)
+    cv2.putText(frame, text, position, font, scaled_font_size, color, scaled_thickness, cv2.LINE_AA)
 
 def pregenerate_static_audio():
     logger.info("Pre-generating static audio files if they don't exist...")
@@ -335,53 +362,56 @@ def reset_game_state():
 
 def draw_subtitles(frame, text):
     font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 0.7
-    thickness = 2
+    font_scale = 0.7 * text_scale_factor  # Apply dynamic scaling
+    thickness = max(1, int(2 * thickness_scale_factor))
     (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
     x = (frame.shape[1] - text_width) // 2
-    y = frame.shape[0] - 30
+    y = frame.shape[0] - int(30 * text_scale_factor)  # Scale position too
     
     # Draw solid black background for better readability
-    padding = 15
+    padding = int(15 * text_scale_factor)  # Scale padding
     cv2.rectangle(frame, 
                  (x - padding, y - text_height - padding), 
                  (x + text_width + padding, y + baseline + padding), 
                  (0, 0, 0), -1)  # Solid black background
     
     # Add a subtle border
+    border_thickness = max(1, int(2 * thickness_scale_factor))
     cv2.rectangle(frame, 
                  (x - padding, y - text_height - padding), 
                  (x + text_width + padding, y + baseline + padding), 
-                 (50, 50, 50), 2)  # Dark gray border
+                 (50, 50, 50), border_thickness)  # Dark gray border
     
     # Draw the text
     cv2.putText(frame, text, (x, y), font, font_scale, (255, 255, 255), thickness)
 
 def draw_command_subtitles(frame, text):
-    """Draw larger command subtitles for gesture prompts"""
+    """Draw larger command subtitles for gesture prompts with dynamic scaling"""
     font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 1.2  # Larger than normal subtitles
-    thickness = 3
+    font_scale = 1.2 * text_scale_factor  # Apply dynamic scaling
+    thickness = max(2, int(3 * thickness_scale_factor))
     (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
     x = (frame.shape[1] - text_width) // 2
-    y = frame.shape[0] - 60  # Higher up to accommodate larger text
+    y = frame.shape[0] - int(60 * text_scale_factor)  # Scale position
     
     # Draw solid black background for better readability
-    padding = 20  # More padding for larger text
+    padding = int(20 * text_scale_factor)  # Scale padding
     cv2.rectangle(frame, 
                  (x - padding, y - text_height - padding), 
                  (x + text_width + padding, y + baseline + padding), 
                  (0, 0, 0), -1)  # Solid black background
     
     # Add a more prominent border for commands
+    border_thickness = max(2, int(3 * thickness_scale_factor))
     cv2.rectangle(frame, 
                  (x - padding, y - text_height - padding), 
                  (x + text_width + padding, y + baseline + padding), 
-                 (100, 200, 255), 3)  # Blue border for commands
+                 (100, 200, 255), border_thickness)  # Blue border for commands
     
     # Draw the text with a slight glow effect
+    shadow_offset = max(1, int(2 * text_scale_factor))
     # Draw shadow first
-    cv2.putText(frame, text, (x + 2, y + 2), font, font_scale, (0, 0, 0), thickness + 1)
+    cv2.putText(frame, text, (x + shadow_offset, y + shadow_offset), font, font_scale, (0, 0, 0), thickness + 1)
     # Draw main text
     cv2.putText(frame, text, (x, y), font, font_scale, (255, 255, 255), thickness)
 
@@ -448,6 +478,10 @@ if not success:
     logger.error("Could not read from camera. Exiting.")
     exit()
 frame_height, frame_width, _ = temp_frame.shape
+
+# Calculate text scaling based on camera dimensions
+calculate_text_scaling(frame_width, frame_height)
+
 logo_img = load_logo(target_width=int(frame_width * 0.4))
 
 # Suppress MediaPipe recognizer creation output
@@ -482,11 +516,14 @@ with recognizer:
                 y_pos = int(frame_height * 0.25)  # Higher up for better composition
                 overlay_transparent_image(frame, logo_img, x_pos, y_pos)
             
-            # Modern main text styling
+            # Modern main text styling with dynamic scaling
             font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = 2.2
+            font_scale = 2.2  # Will be scaled by draw_modern_text
             thickness = 3
-            (text_w, text_h), _ = cv2.getTextSize(screen_saver_message, font, font_scale, thickness)
+            # Calculate size with scaling applied
+            scaled_font_size = font_scale * text_scale_factor
+            scaled_thickness = max(1, int(thickness * thickness_scale_factor))
+            (text_w, text_h), _ = cv2.getTextSize(screen_saver_message, font, scaled_font_size, scaled_thickness)
             text_x = (frame_width - text_w) // 2
             text_y = int(frame_height * 0.7)
             
@@ -497,9 +534,12 @@ with recognizer:
             instruction_text = "Stand in front to begin"
             instruction_font_scale = 0.8
             instruction_thickness = 2
-            (inst_w, inst_h), _ = cv2.getTextSize(instruction_text, font, instruction_font_scale, instruction_thickness)
+            # Calculate size with scaling applied
+            scaled_inst_font_size = instruction_font_scale * text_scale_factor
+            scaled_inst_thickness = max(1, int(instruction_thickness * thickness_scale_factor))
+            (inst_w, inst_h), _ = cv2.getTextSize(instruction_text, font, scaled_inst_font_size, scaled_inst_thickness)
             inst_x = (frame_width - inst_w) // 2
-            inst_y = text_y + 60
+            inst_y = text_y + int(60 * text_scale_factor)  # Scale spacing
             
             draw_modern_text(frame, instruction_text, (inst_x, inst_y), instruction_font_scale, instruction_thickness, (180, 180, 180))
 
@@ -516,12 +556,17 @@ with recognizer:
                     logger.debug(f"Person detected! Starting {PERSON_PRESENCE_TIME_THRESHOLD}s timer.")
                 
                 elapsed_time = time.time() - (person_detected_time or 0)
-                # Modern timer display
+                # Modern timer display with dynamic scaling
                 timer_text = f"Starting in {PERSON_PRESENCE_TIME_THRESHOLD - elapsed_time:.1f}s"
                 timer_bg = frame.copy()
-                cv2.rectangle(timer_bg, (40, 50), (350, 100), (50, 50, 50), -1)
+                # Scale timer box dimensions
+                timer_x1 = int(40 * text_scale_factor)
+                timer_y1 = int(50 * text_scale_factor)
+                timer_x2 = int(350 * text_scale_factor)
+                timer_y2 = int(100 * text_scale_factor)
+                cv2.rectangle(timer_bg, (timer_x1, timer_y1), (timer_x2, timer_y2), (50, 50, 50), -1)
                 cv2.addWeighted(timer_bg, 0.8, frame, 0.2, 0, frame)
-                draw_modern_text(frame, timer_text, (50, 85), 0.9, 2, (0, 255, 150))
+                draw_modern_text(frame, timer_text, (int(50 * text_scale_factor), int(85 * text_scale_factor)), 0.9, 2, (0, 255, 150))
 
                 if elapsed_time > PERSON_PRESENCE_TIME_THRESHOLD:
                     logger.debug("Timer finished. Switching to GREETING state.")
@@ -587,14 +632,14 @@ with recognizer:
             if current_question and not pygame.mixer.get_busy():
                 # CENTERED QUIZ UI - Modern and clean layout
                 
-                # Question text - centered at top
+                # Question text - centered at top with dynamic scaling
                 question_text = current_question['question']
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 question_font_scale = 1.0
                 question_thickness = 2
                 
-                # Split question into multiple lines if too long
-                max_chars_per_line = 60
+                # Split question into multiple lines if too long (adjust for scaling)
+                max_chars_per_line = max(30, int(60 / text_scale_factor))  # Fewer chars on smaller screens
                 question_lines = []
                 words = question_text.split(' ')
                 current_line = ""
@@ -610,29 +655,32 @@ with recognizer:
                 if current_line:
                     question_lines.append(current_line.strip())
                 
-                # Draw question lines centered
-                start_y = 80
-                line_height = 40
+                # Draw question lines centered with scaling
+                start_y = int(80 * text_scale_factor)
+                line_height = int(40 * text_scale_factor)
                 for i, line in enumerate(question_lines):
-                    (text_w, text_h), _ = cv2.getTextSize(line, font, question_font_scale, question_thickness)
+                    # Calculate size with scaling applied
+                    scaled_font_size = question_font_scale * text_scale_factor
+                    scaled_thickness = max(1, int(question_thickness * thickness_scale_factor))
+                    (text_w, text_h), _ = cv2.getTextSize(line, font, scaled_font_size, scaled_thickness)
                     text_x = (frame_width - text_w) // 2
                     text_y = start_y + (i * line_height)
                     draw_modern_text(frame, line, (text_x, text_y), question_font_scale, question_thickness, (255, 255, 255))
                 
-                # Options - centered vertically and horizontally
+                # Options - centered vertically and horizontally with dynamic scaling
                 num_options = len(current_question['options'])
-                option_height = 70
-                option_width = 600
+                option_height = int(70 * text_scale_factor)
+                option_width = min(int(600 * text_scale_factor), frame_width - int(40 * text_scale_factor))  # Ensure it fits
                 total_options_height = num_options * option_height
                 
                 # Center the options block vertically
-                options_start_y = (frame_height - total_options_height) // 2 + 50
+                options_start_y = (frame_height - total_options_height) // 2 + int(50 * text_scale_factor)
                 options_start_x = (frame_width - option_width) // 2
                 
                 option_boxes = []
                 for i, option in enumerate(current_question['options']):
                     y_pos = options_start_y + i * option_height
-                    box = (options_start_x, y_pos, options_start_x + option_width, y_pos + option_height - 10)
+                    box = (options_start_x, y_pos, options_start_x + option_width, y_pos + option_height - int(10 * text_scale_factor))
                     option_boxes.append(box)
                     
                     # Modern option styling
@@ -644,14 +692,18 @@ with recognizer:
                     
                     # Draw rounded rectangle effect
                     cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), bg_color, -1)
-                    cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), border_color, 3)
+                    border_thickness = max(1, int(3 * thickness_scale_factor))
+                    cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), border_color, border_thickness)
                     
-                    # Option text - centered in each box
+                    # Option text - centered in each box with dynamic scaling
                     option_text = f"{i+1}. {option}"
                     option_font_scale = 0.8
                     option_thickness = 2
                     
-                    (opt_text_w, opt_text_h), _ = cv2.getTextSize(option_text, font, option_font_scale, option_thickness)
+                    # Calculate size with scaling applied
+                    scaled_opt_font_size = option_font_scale * text_scale_factor
+                    scaled_opt_thickness = max(1, int(option_thickness * thickness_scale_factor))
+                    (opt_text_w, opt_text_h), _ = cv2.getTextSize(option_text, font, scaled_opt_font_size, scaled_opt_thickness)
                     text_x = box[0] + (option_width - opt_text_w) // 2
                     text_y = box[1] + (option_height + opt_text_h) // 2
                     
@@ -676,9 +728,12 @@ with recognizer:
                         elapsed_time = time.time() - hover_start_time
                         progress = elapsed_time / SELECTION_LOCK_DURATION
                         
-                        # Modern selection indicator
-                        cv2.ellipse(frame, (px, py), (25, 25), 270, 0, progress * 360, (0, 255, 255), 4)
-                        cv2.circle(frame, (px, py), 8, (255, 255, 255), -1)
+                        # Modern selection indicator with dynamic scaling
+                        indicator_radius = int(25 * text_scale_factor)
+                        indicator_thickness = max(2, int(4 * thickness_scale_factor))
+                        center_radius = int(8 * text_scale_factor)
+                        cv2.ellipse(frame, (px, py), (indicator_radius, indicator_radius), 270, 0, progress * 360, (0, 255, 255), indicator_thickness)
+                        cv2.circle(frame, (px, py), center_radius, (255, 255, 255), -1)
 
                         if elapsed_time > SELECTION_LOCK_DURATION:
                             if hovered_option == current_question['answer']:

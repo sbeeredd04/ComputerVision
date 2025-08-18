@@ -16,3 +16,6 @@ https://pairlist2.pair.net/mailman/listinfo/reportlab-users
 2025-08-17 17:43:01,543 - ERROR - Critical error loading or converting SVG logo: cannot import desired renderPM backend rlPyCairo
 Seek advice at the users list see
 https://pairlist2.pair.net/mailman/listinfo/reportlab-users
+2025-08-17 17:50:33,557 - INFO - CUDA not available. Using CPU.
+2025-08-17 17:50:33,558 - INFO - Loaded 4 quiz questions.
+2025-08-17 17:50:33,558 - ERROR - Failed to initialize TTS: GEMINI_API_KEY environment variable not set
