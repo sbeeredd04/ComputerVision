@@ -19,9 +19,16 @@ import torch
 import logging
 import warnings
 
-# Suppress warnings
+# Suppress warnings and debug output
 warnings.filterwarnings('ignore')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow warnings
+os.environ['GLOG_minloglevel'] = '3'  # Suppress Google logging
+os.environ['MEDIAPIPE_DISABLE_GPU'] = '0'  # Keep GPU enabled but reduce logs
+
+# Suppress MediaPipe logging
+import sys
+from contextlib import redirect_stderr
+from io import StringIO
 
 # Configure logging
 logging.basicConfig(
@@ -118,6 +125,7 @@ class RobotTTS:
 STATE = "SCREENSAVER"
 PERSON_CONFIDENCE_THRESHOLD = 0.6
 PERSON_PRESENCE_TIME_THRESHOLD = 3.0  # Configurable timer for person detection
+QR_DISPLAY_DURATION = 10.0  # Configurable duration for QR code display (seconds) - increase this value for longer display time
 YOUR_CLUB_WEBSITE_URL = "https://www.yourclubwebsite.com"
 latest_gesture_result = None
 MODEL_PATH = "gesture_recognizer.task"
@@ -428,8 +436,10 @@ qr_code_obj.add_data(YOUR_CLUB_WEBSITE_URL)
 qr_code_obj.make(fit=True)
 qr_img_pil = qr_code_obj.make_image(fill_color="black", back_color="white").convert('RGB').resize((200, 200))
 qr_img_cv = cv2.cvtColor(np.array(qr_img_pil), cv2.COLOR_RGB2BGR)
-base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
-options = vision.GestureRecognizerOptions(base_options=base_options, running_mode=vision.RunningMode.LIVE_STREAM, num_hands=2, result_callback=process_gesture_result)
+# Suppress MediaPipe initialization output
+with redirect_stderr(StringIO()):
+    base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
+    options = vision.GestureRecognizerOptions(base_options=base_options, running_mode=vision.RunningMode.LIVE_STREAM, num_hands=2, result_callback=process_gesture_result)
 
 logger.info("Starting camera feed...")
 cap = cv2.VideoCapture(0)
@@ -440,7 +450,11 @@ if not success:
 frame_height, frame_width, _ = temp_frame.shape
 logo_img = load_logo(target_width=int(frame_width * 0.4))
 
-with vision.GestureRecognizer.create_from_options(options) as recognizer:
+# Suppress MediaPipe recognizer creation output
+with redirect_stderr(StringIO()):
+    recognizer = vision.GestureRecognizer.create_from_options(options)
+
+with recognizer:
     while cap.isOpened():
         # --- SCREENSAVER LOGIC ---
         if STATE == "SCREENSAVER" or STATE == "PERSON_DETECTED":
@@ -564,7 +578,7 @@ with vision.GestureRecognizer.create_from_options(options) as recognizer:
         elif STATE == "SHOWING_QR":
             frame[10:210, frame_width-210:frame_width-10] = qr_img_cv
             if 'qr_start_time' not in locals(): qr_start_time = time.time()
-            if time.time() - qr_start_time > 8 and not pygame.mixer.get_busy():
+            if time.time() - qr_start_time > QR_DISPLAY_DURATION and not pygame.mixer.get_busy():
                 play_audio_by_name("goodbye")
                 time.sleep(2) 
                 reset_game_state()
