@@ -2,6 +2,7 @@ import cv2
 import time
 import numpy as np
 import pygame
+import pygame.sndarray
 import qrcode
 from PIL import Image
 from ultralytics import YOLO
@@ -130,7 +131,7 @@ YOUR_CLUB_WEBSITE_URL = "https://www.yourclubwebsite.com"
 latest_gesture_result = None
 MODEL_PATH = "gesture_recognizer.task"
 last_person_seen_time = 0
-PERSON_RESET_TIMEOUT = 2
+PERSON_RESET_TIMEOUT = 4
 screen_saver_message = "Step Up to Play!"
 LOGO_SVG_PATH = "soda.svg"
 logo_img = None
@@ -327,9 +328,7 @@ def draw_modern_text(frame, text, position, font_scale=1.0, thickness=2, color=(
 def pregenerate_static_audio():
     logger.info("Pre-generating static audio files if they don't exist...")
     audio_map = {
-        "greeting": ("Hey there! Nice to meet you! Give me a thumbs up to learn about SoDA!", "cheerfully"),
         "about_soda": ("SoDA is the Software Development Association! We build cool projects and learn together.", "enthusiastically"),
-        "game_request": ("Would you like to answer a question for a potential prize? Show thumbs up for yes, or thumbs down for no.", "playfully"),
         "skip_quiz_prompt": ("No problem! Show me a peace sign to get our QR code instead.", "calmly"),
         "qr_show": ("Awesome! Here's how to join us!", "happily"),
         "correct_answer": ("Correct! You win! You can collect your prize later.", "excitedly"),
@@ -342,19 +341,61 @@ def pregenerate_static_audio():
         SUBTITLES[name] = text
     logger.info("Static audio ready.")
 
-def play_audio_by_name(filename):
+def play_audio_by_name(filename, speed_multiplier=1.5):
     global current_subtitle
     filepath = os.path.join(tts.audio_dir, f"{filename}.wav")
     if os.path.exists(filepath):
-        pygame.mixer.Sound(filepath).play()
+        sound = pygame.mixer.Sound(filepath)
+        # Create a faster version by modifying the frequency
+        if speed_multiplier != 1.0 and speed_multiplier > 0:
+            # Get the raw audio data
+            raw_data = pygame.sndarray.array(sound)
+            # Resample to increase speed (skip samples based on speed multiplier)
+            step_size = max(1, int(1/speed_multiplier)) if speed_multiplier < 1.0 else max(1, int(speed_multiplier))
+            if speed_multiplier > 1.0:
+                # For speeds > 1.0, we skip samples to make it faster
+                if len(raw_data.shape) == 1:  # Mono
+                    faster_data = raw_data[::step_size]
+                else:  # Stereo
+                    faster_data = raw_data[::step_size, :]
+            else:
+                # For speeds < 1.0, we would need to interpolate (not implemented here)
+                # Just play at normal speed for now
+                pass
+            
+            if speed_multiplier > 1.0:
+                # Create new sound from modified data
+                sound = pygame.sndarray.make_sound(faster_data)
+        sound.play()
         current_subtitle = SUBTITLES.get(filename, "")
     else:
         logger.error(f"Audio file not found: {filepath}")
 
-def play_dynamic_audio(text, style=""):
+def play_dynamic_audio(text, style="", speed_multiplier=1.5):
     filepath = tts.generate_speech(text, style)
     if filepath:
-        pygame.mixer.Sound(filepath).play()
+        sound = pygame.mixer.Sound(filepath)
+        # Create a faster version by modifying the frequency
+        if speed_multiplier != 1.0 and speed_multiplier > 0:
+            # Get the raw audio data
+            raw_data = pygame.sndarray.array(sound)
+            # Resample to increase speed (skip samples based on speed multiplier)
+            step_size = max(1, int(1/speed_multiplier)) if speed_multiplier < 1.0 else max(1, int(speed_multiplier))
+            if speed_multiplier > 1.0:
+                # For speeds > 1.0, we skip samples to make it faster
+                if len(raw_data.shape) == 1:  # Mono
+                    faster_data = raw_data[::step_size]
+                else:  # Stereo
+                    faster_data = raw_data[::step_size, :]
+            else:
+                # For speeds < 1.0, we would need to interpolate (not implemented here)
+                # Just play at normal speed for now
+                pass
+            
+            if speed_multiplier > 1.0:
+                # Create new sound from modified data
+                sound = pygame.sndarray.make_sound(faster_data)
+        sound.play()
 
 def get_new_question():
     global current_question, answered_questions
@@ -540,17 +581,7 @@ def process_gesture_result(result: vision.GestureRecognizerResult, output_image:
     latest_gesture_result = result
     if pygame.mixer.get_busy() or not result.gestures: return
     gesture_name = result.gestures[0][0].category_name
-    if STATE == "GREETING" and gesture_name == "Thumb_Up":
-        STATE = "EXPLAINING"
-        play_audio_by_name("about_soda")
-    elif STATE == "AWAITING_QUIZ_CHOICE":
-        if gesture_name == "Thumb_Up":
-            STATE = "QUIZ_MODE"
-            get_new_question()
-        elif gesture_name == "Thumb_Down":
-            STATE = "PROMPT_FOR_QR"
-            play_audio_by_name("skip_quiz_prompt")
-    elif STATE == "PROMPT_FOR_QR" and gesture_name == "Victory":
+    if STATE == "PROMPT_FOR_QR" and gesture_name == "Victory":
         STATE = "SHOWING_QR"
         play_audio_by_name("qr_show")
 
@@ -674,12 +705,12 @@ with recognizer:
                 draw_modern_text(frame, timer_text, (int(50 * text_scale_factor), int(85 * text_scale_factor)), 0.9, 2, (0, 255, 150))
 
                 if elapsed_time > PERSON_PRESENCE_TIME_THRESHOLD:
-                    logger.debug("Timer finished. Switching to GREETING state.")
-                    STATE = "GREETING"
+                    logger.debug("Timer finished. Switching to QUIZ_MODE state.")
+                    STATE = "QUIZ_MODE"
                     # --- BUG FIX: Initialize last_person_seen_time here! ---
                     # This prevents the immediate timeout in the interactive loop.
                     last_person_seen_time = time.time()
-                    play_audio_by_name("greeting")
+                    get_new_question()
             
             elif STATE == "PERSON_DETECTED":
                  logger.debug("Person lost. Returning to screensaver.")
@@ -713,14 +744,7 @@ with recognizer:
             person_found_interactive = True
         
         # --- State Machine for Interaction ---
-        if STATE == "GREETING" and not pygame.mixer.get_busy():
-            current_command_subtitle = "Show me a THUMBS UP!"
-        elif STATE == "EXPLAINING" and not pygame.mixer.get_busy():
-            STATE = "AWAITING_QUIZ_CHOICE"
-            play_audio_by_name("game_request")
-        elif STATE == "AWAITING_QUIZ_CHOICE" and not pygame.mixer.get_busy():
-            current_command_subtitle = "Quiz? Thumbs UP (Yes) or DOWN (No)"
-        elif STATE == "AWAITING_FEEDBACK_END" and not pygame.mixer.get_busy():
+        if STATE == "AWAITING_FEEDBACK_END" and not pygame.mixer.get_busy():
             STATE = "PROMPT_FOR_QR"
             play_audio_by_name("qr_prompt_after_quiz")
         elif STATE == "PROMPT_FOR_QR" and not pygame.mixer.get_busy():
