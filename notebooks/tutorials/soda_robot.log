@@ -62,3 +62,13 @@ https://pairlist2.pair.net/mailman/listinfo/reportlab-users
 2025-08-19 17:36:13,872 - ERROR - Critical error loading or converting SVG logo: cannot import desired renderPM backend rlPyCairo
 Seek advice at the users list see
 https://pairlist2.pair.net/mailman/listinfo/reportlab-users
+2025-08-19 17:55:29,741 - INFO - CUDA not available. Using CPU.
+2025-08-19 17:55:29,742 - INFO - Loaded 30 quiz questions.
+2025-08-19 17:55:29,742 - INFO - Pre-generating static audio files if they don't exist...
+2025-08-19 17:55:29,742 - INFO - Static audio ready.
+2025-08-19 17:55:29,780 - INFO - YOLO model loaded on cpu
+2025-08-19 17:55:30,488 - INFO - Starting camera feed...
+2025-08-19 17:55:31,845 - INFO - Text scaling calculated: scale=1.50, thickness=1
+2025-08-19 17:55:31,856 - ERROR - Critical error loading or converting SVG logo: cannot import desired renderPM backend rlPyCairo
+Seek advice at the users list see
+https://pairlist2.pair.net/mailman/listinfo/reportlab-users
