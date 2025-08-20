@@ -19,3 +19,16 @@ https://pairlist2.pair.net/mailman/listinfo/reportlab-users
 2025-08-17 17:50:33,557 - INFO - CUDA not available. Using CPU.
 2025-08-17 17:50:33,558 - INFO - Loaded 4 quiz questions.
 2025-08-17 17:50:33,558 - ERROR - Failed to initialize TTS: GEMINI_API_KEY environment variable not set
+2025-08-19 17:22:09,617 - INFO - CUDA not available. Using CPU.
+2025-08-19 17:22:09,618 - INFO - Loaded 30 quiz questions.
+2025-08-19 17:22:09,618 - ERROR - Failed to initialize TTS: GEMINI_API_KEY environment variable not set
+2025-08-19 17:22:25,950 - INFO - CUDA not available. Using CPU.
+2025-08-19 17:22:25,950 - INFO - Loaded 30 quiz questions.
+2025-08-19 17:22:25,951 - INFO - Pre-generating static audio files if they don't exist...
+2025-08-19 17:22:25,951 - INFO - Static audio ready.
+2025-08-19 17:22:25,980 - INFO - YOLO model loaded on cpu
+2025-08-19 17:22:28,679 - INFO - Starting camera feed...
+2025-08-19 17:22:30,162 - INFO - Text scaling calculated: scale=1.50, thickness=1
+2025-08-19 17:22:30,178 - ERROR - Critical error loading or converting SVG logo: cannot import desired renderPM backend rlPyCairo
+Seek advice at the users list see
+https://pairlist2.pair.net/mailman/listinfo/reportlab-users

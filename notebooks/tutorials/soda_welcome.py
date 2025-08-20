@@ -123,14 +123,14 @@ class RobotTTS:
 
 # --- INITIALIZATION ---
 STATE = "SCREENSAVER"
-PERSON_CONFIDENCE_THRESHOLD = 0.6
-PERSON_PRESENCE_TIME_THRESHOLD = 3.0  # Configurable timer for person detection
+PERSON_CONFIDENCE_THRESHOLD = 0.80
+PERSON_PRESENCE_TIME_THRESHOLD = 3  # Configurable timer for person detection
 QR_DISPLAY_DURATION = 10.0  # Configurable duration for QR code display (seconds) - increase this value for longer display time
 YOUR_CLUB_WEBSITE_URL = "https://www.yourclubwebsite.com"
 latest_gesture_result = None
 MODEL_PATH = "gesture_recognizer.task"
 last_person_seen_time = 0
-PERSON_RESET_TIMEOUT = 5.0
+PERSON_RESET_TIMEOUT = 2
 screen_saver_message = "Step Up to Play!"
 LOGO_SVG_PATH = "soda.svg"
 logo_img = None
